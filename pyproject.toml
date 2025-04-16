@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 127
+exclude = ["gridient/_version.py"]
 
 [tool.ruff.format]
 quote-style = "double"
