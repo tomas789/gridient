@@ -79,13 +79,13 @@ class TestExcelWorkbook:
             assert format2 is mock_format
 
             # Test with num_format only
-            format3 = workbook.get_combined_format(None, "#,##0.00")
+            workbook.get_combined_format(None, "#,##0.00")
 
             # Verify add_format was called with correct properties
             mock_workbook_instance.add_format.assert_called_with({"num_format": "#,##0.00"})
 
             # Test with both style and num_format
-            format4 = workbook.get_combined_format(style, "#,##0.00")
+            workbook.get_combined_format(style, "#,##0.00")
 
             # Verify add_format was called with combined properties
             mock_workbook_instance.add_format.assert_called_with(
@@ -163,7 +163,7 @@ class TestExcelSheetLayout:
         # Verify initialization
         assert sheet_layout.name == "Sheet1"
         assert sheet_layout._components == []
-        assert sheet_layout.auto_width == True
+        assert sheet_layout.auto_width
 
     def test_add_component(self):
         """Test adding a component to the sheet layout."""

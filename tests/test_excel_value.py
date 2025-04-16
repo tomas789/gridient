@@ -255,7 +255,7 @@ class TestExcelValueRendering:
         assert val_int._render_formula_or_value(ref_map) == 42
         assert val_float._render_formula_or_value(ref_map) == 3.14
         assert val_str._render_formula_or_value(ref_map) == "test"
-        assert val_bool._render_formula_or_value(ref_map) == True
+        assert val_bool._render_formula_or_value(ref_map)
 
     def test_render_excel_value_reference(self):
         """Test rendering references to other ExcelValue objects."""
