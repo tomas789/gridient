@@ -29,6 +29,7 @@ class ExcelValue:
         unit: Optional[str] = None,  # Primarily for ParameterTable display
         style: Optional[ExcelStyle] = None,
         _id: Optional[int] = None,
+        is_parameter: bool = False,  # Add is_parameter flag to identify parameter values
     ):  # Internal ID for wrapping
         if _id is None:
             self.id = ExcelValue._next_id
@@ -51,6 +52,7 @@ class ExcelValue:
         self._excel_ref: Optional[str] = None  # Assigned during layout
         self._parent_series: Optional["ExcelSeries"] = None  # Link back to series if part of one
         self._series_key: Optional[Any] = None  # Key within the parent series
+        self.is_parameter = is_parameter  # Flag to identify parameter values (absolute references)
 
     @property
     def excel_ref(self) -> str:
@@ -87,14 +89,14 @@ class ExcelValue:
 
             # Create the formula string "=Reference"
             formula_str = "=" + ref
-            # Make reference absolute if the inner value is standalone (like a parameter)
-            if inner_value._parent_series is None:
+            # Only make the reference absolute if it's a parameter or has is_parameter=True
+            if hasattr(inner_value, "is_parameter") and inner_value.is_parameter:
                 try:
                     row, col = xl_cell_to_rowcol(ref)
                     absolute_ref = xl_rowcol_to_cell(row, col, row_abs=True, col_abs=True)
                     formula_str = "=" + absolute_ref
                 except Exception:
-                    logger.warning(f"Could not make reference absolute for inner value ref {ref}")
+                    logger.warning(f"Could not make reference absolute for parameter ref {ref}")
             return formula_str  # Return e.g., "=$C$4" or "=Sheet1!A5"
         else:
             # Value is a literal, return it directly
@@ -280,15 +282,14 @@ class ExcelFormula:
             if ref is not None and not ref.startswith("<Unplaced"):
                 # Value has a valid reference, USE IT!
                 rendered_ref = ref
-                # Make reference absolute if it's a standalone value (not in a series)
-                if arg._parent_series is None:
+                # Only make reference absolute if it's a parameter
+                if hasattr(arg, "is_parameter") and arg.is_parameter:
                     try:
                         row, col = xl_cell_to_rowcol(ref)
                         rendered_ref = xl_rowcol_to_cell(row, col, row_abs=True, col_abs=True)
                     except Exception:
                         # If ref is not a valid cell ref (e.g., range), return as is
                         logger.warning(f"Could not make reference absolute for {ref}")
-                # else: Keep relative for values within a series
                 return rendered_ref  # Return the cell reference (e.g., 'E9')
             else:
                 # --- Fallback for UNPLACED values ---
