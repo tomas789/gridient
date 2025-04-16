@@ -12,6 +12,8 @@ Welcome to gridient's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   internals
+
 .. toctree::
    :maxdepth: 1
    :caption: API Reference
