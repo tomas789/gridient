@@ -6,7 +6,7 @@ import xlsxwriter  # Import the main library
 from xlsxwriter.utility import xl_rowcol_to_cell
 
 # Use TYPE_CHECKING to avoid circular imports
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .stacks import ExcelStack  # Import the new stack class
     from .workbook import ExcelWorkbook
 

@@ -15,7 +15,7 @@ from .values import ExcelSeries, ExcelValue
 #     pass
 
 # Use TYPE_CHECKING to avoid circular imports
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .layout import ExcelLayout
     from .workbook import ExcelWorkbook
 

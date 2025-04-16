@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 # Use TYPE_CHECKING to avoid circular imports at runtime
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     import xlsxwriter.worksheet
 
     from .layout import ExcelLayout  # Assuming ExcelLayout is needed for type hint
