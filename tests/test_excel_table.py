@@ -148,19 +148,20 @@ class TestExcelTableReferenceAssignment:
         ref_map = {}
 
         # Call _assign_child_references
-        table._assign_child_references(0, 0, layout_manager, ref_map)
+        # Assume sheet name is 'Sheet1' for the test
+        table._assign_child_references(0, 0, "Sheet1", layout_manager, ref_map)
 
         # Verify layout_manager._assign_references_recursive was called for each value
         # Starting row should be 2 (title row + header row)
         assert layout_manager._assign_references_recursive.call_count == 4  # 2 columns x 2 rows
 
         # Verify calls for first column
-        layout_manager._assign_references_recursive.assert_any_call(series1[0], 2, 0, ref_map)
-        layout_manager._assign_references_recursive.assert_any_call(series1[1], 3, 0, ref_map)
+        layout_manager._assign_references_recursive.assert_any_call(series1[0], 2, 0, "Sheet1", ref_map)
+        layout_manager._assign_references_recursive.assert_any_call(series1[1], 3, 0, "Sheet1", ref_map)
 
         # Verify calls for second column
-        layout_manager._assign_references_recursive.assert_any_call(series2[0], 2, 1, ref_map)
-        layout_manager._assign_references_recursive.assert_any_call(series2[1], 3, 1, ref_map)
+        layout_manager._assign_references_recursive.assert_any_call(series2[0], 2, 1, "Sheet1", ref_map)
+        layout_manager._assign_references_recursive.assert_any_call(series2[1], 3, 1, "Sheet1", ref_map)
 
 
 class TestExcelTableWriting:

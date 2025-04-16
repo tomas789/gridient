@@ -90,6 +90,7 @@ class ExcelStack:
         self,
         start_row: int,
         start_col: int,
+        sheet_name: str,
         layout_manager: "ExcelLayout",
         ref_map: dict,
     ):
@@ -102,7 +103,7 @@ class ExcelStack:
             child_start_row = current_row
             child_start_col = current_col
 
-            layout_manager._assign_references_recursive(child, child_start_row, child_start_col, ref_map)
+            layout_manager._assign_references_recursive(child, child_start_row, child_start_col, sheet_name, ref_map)
 
             # Update position for the next child based on orientation and spacing
             child_rows, child_cols = (0, 0)

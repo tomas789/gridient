@@ -1,0 +1,1 @@
+- When fixing tests, Run pytest tests/. Think hard about the root cause of the issue and only then proceed with the fix. If not sure, add some debug logging and run the tests again to ensure you understand the issue first.
