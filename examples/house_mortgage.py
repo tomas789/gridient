@@ -2,19 +2,7 @@
 # import numpy_financial as npf # We will use Excel's PMT function directly
 import logging
 
-from excelalchemy import (
-    ExcelFormula,
-    ExcelLayout,
-    ExcelParameterTable,
-    ExcelSeries,
-    ExcelSheetLayout,
-    ExcelStack,
-    ExcelStyle,
-    ExcelTable,
-    ExcelTableColumn,
-    ExcelValue,
-    ExcelWorkbook,
-)
+import gridient as gr  # Renamed import
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -27,13 +15,13 @@ LOAN_TERM_YEARS = 30
 OUTPUT_FILENAME = "house_mortgage_output.xlsx"
 
 # --- Define Excel Objects for Parameters ---
-param_loan = ExcelValue(LOAN_AMOUNT, name="Loan Amount", unit="Kč", format="#,##0")
-param_rate_annual = ExcelValue(
+param_loan = gr.ExcelValue(LOAN_AMOUNT, name="Loan Amount", unit="Kč", format="#,##0")
+param_rate_annual = gr.ExcelValue(
     ANNUAL_INTEREST_RATE, name="Annual Interest Rate", format="0.00%"
 )
-param_term_years = ExcelValue(LOAN_TERM_YEARS, name="Loan Term (Years)", format="0")
+param_term_years = gr.ExcelValue(LOAN_TERM_YEARS, name="Loan Term (Years)", format="0")
 
-params_table = ExcelParameterTable(
+params_table = gr.ExcelParameterTable(
     "Mortgage Parameters", [param_loan, param_rate_annual, param_term_years]
 )
 
@@ -51,26 +39,26 @@ num_payments.format = "0"
 # rate: Interest rate per period.
 # nper: Total number of payments.
 # pv: Present value (loan amount) - should be negative if money received.
-monthly_payment = ExcelValue(
-    ExcelFormula("PMT", [monthly_rate, num_payments, -param_loan]),
+monthly_payment = gr.ExcelValue(
+    gr.ExcelFormula("PMT", [monthly_rate, num_payments, -param_loan]),
     name="Monthly Payment (Kč)",
     format="#,##0.00",
-    style=ExcelStyle(bold=True),
+    style=gr.ExcelStyle(bold=True),
 )
 
 # --- Amortization Schedule Calculation ---
 periods = list(range(1, int(LOAN_TERM_YEARS * 12) + 1))
 
 # Add month and year columns
-month_number_col = ExcelSeries(name="Month", format="0", index=periods)
-year_number_col = ExcelSeries(name="Year", format="0", index=periods)
-start_balance = ExcelSeries(name="Start Balance", format="#,##0.00", index=periods)
-interest_paid = ExcelSeries(name="Interest Paid", format="#,##0.00", index=periods)
-interest_pct_of_payment = ExcelSeries(
+month_number_col = gr.ExcelSeries(name="Month", format="0", index=periods)
+year_number_col = gr.ExcelSeries(name="Year", format="0", index=periods)
+start_balance = gr.ExcelSeries(name="Start Balance", format="#,##0.00", index=periods)
+interest_paid = gr.ExcelSeries(name="Interest Paid", format="#,##0.00", index=periods)
+interest_pct_of_payment = gr.ExcelSeries(
     name="Interest % of Payment", format="0.0%", index=periods
 )
-principal_paid = ExcelSeries(name="Principal Paid", format="#,##0.00", index=periods)
-end_balance = ExcelSeries(name="End Balance", format="#,##0.00", index=periods)
+principal_paid = gr.ExcelSeries(name="Principal Paid", format="#,##0.00", index=periods)
+end_balance = gr.ExcelSeries(name="End Balance", format="#,##0.00", index=periods)
 
 for period in periods:
     # --- Calculate Month and Year ---
@@ -90,38 +78,40 @@ for period in periods:
     end_balance[period] = start_balance[period] - principal_paid[period]
 
 # --- Create Amortization Table ---
-amortization_table = ExcelTable(
+amortization_table = gr.ExcelTable(
     "Amortization Schedule",
     columns=[
-        ExcelTableColumn(month_number_col),
-        ExcelTableColumn(year_number_col),
-        ExcelTableColumn(start_balance),
-        ExcelTableColumn(interest_paid),
-        ExcelTableColumn(interest_pct_of_payment),
-        ExcelTableColumn(principal_paid),
-        ExcelTableColumn(end_balance),
+        gr.ExcelTableColumn(month_number_col),
+        gr.ExcelTableColumn(year_number_col),
+        gr.ExcelTableColumn(start_balance),
+        gr.ExcelTableColumn(interest_paid),
+        gr.ExcelTableColumn(interest_pct_of_payment),
+        gr.ExcelTableColumn(principal_paid),
+        gr.ExcelTableColumn(end_balance),
     ],
 )
 
 # --- Layout ---
-workbook = ExcelWorkbook(OUTPUT_FILENAME)
-layout = ExcelLayout(workbook)
-sheet = ExcelSheetLayout("Mortgage Details")
+workbook = gr.ExcelWorkbook(OUTPUT_FILENAME)
+layout = gr.ExcelLayout(workbook)
+sheet = gr.ExcelSheetLayout("Mortgage Details")
 
 # --- Create Stacks ---
 # Stack for parameters and calculated values
-vstack_params_calcs = ExcelStack(
+vstack_params_calcs = gr.ExcelStack(
     orientation="vertical", spacing=1, name="Params & Calcs"
 )
 vstack_params_calcs.add(params_table)
 # Small horizontal stack for the label + value
-hstack_payment = ExcelStack(orientation="horizontal", spacing=0, name="Payment Line")
-hstack_payment.add(ExcelValue("Monthly Payment:"))
+hstack_payment = gr.ExcelStack(orientation="horizontal", spacing=0, name="Payment Line")
+hstack_payment.add(gr.ExcelValue("Monthly Payment:"))
 hstack_payment.add(monthly_payment)
 vstack_params_calcs.add(hstack_payment)
 
 # Main stack for the sheet
-vstack_main = ExcelStack(orientation="vertical", spacing=2, name="Main Mortgage Layout")
+vstack_main = gr.ExcelStack(
+    orientation="vertical", spacing=2, name="Main Mortgage Layout"
+)
 vstack_main.add(vstack_params_calcs)
 vstack_main.add(amortization_table)
 
