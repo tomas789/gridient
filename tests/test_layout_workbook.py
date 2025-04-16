@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from gridient.layout import ExcelLayout, ExcelSheetLayout
 from gridient.styling import ExcelStyle
 from gridient.tables import ExcelParameterTable, ExcelTable
-from gridient.values import ExcelSeries, ExcelValue
+from gridient.values import ExcelFormula, ExcelSeries, ExcelValue
 from gridient.workbook import ExcelWorkbook
 
 
@@ -216,38 +216,39 @@ class TestExcelLayout:
 
     def test_layout_creation(self):
         """Test creating an ExcelLayout."""
-        with patch("xlsxwriter.Workbook"):
-            # Create the workbook
-            workbook = ExcelWorkbook("test.xlsx")
+        # Create mock workbook
+        mock_workbook = MagicMock()
 
-            # Create layout
-            layout = ExcelLayout(workbook)
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
 
-            # Verify initialization
-            assert layout.workbook is workbook
-            assert isinstance(layout._sheets, dict)
-            assert len(layout._sheets) == 0
+        # Verify initialization
+        assert layout.workbook is mock_workbook
+        assert isinstance(layout._sheets, dict)
+        assert len(layout._sheets) == 0
 
     def test_add_sheet(self):
         """Test adding a sheet to the layout."""
-        with patch("xlsxwriter.Workbook") as mock_workbook:
-            # Configure the mock
-            mock_workbook_instance = MagicMock()
-            mock_workbook.return_value = mock_workbook_instance
+        # Create mock workbook
+        mock_workbook = MagicMock()
 
-            # Create the workbook
-            workbook = ExcelWorkbook("test.xlsx")
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
 
-            # Create layout
-            layout = ExcelLayout(workbook)
+        # Create sheet layout
+        sheet_layout = ExcelSheetLayout("Sheet1")
 
-            # Create a sheet
-            sheet = ExcelSheetLayout("Sheet1")
-            layout.add_sheet(sheet)
+        # Add the sheet
+        layout.add_sheet(sheet_layout)
 
-            # Verify sheet was added
-            assert "Sheet1" in layout._sheets
-            assert layout._sheets["Sheet1"] is sheet
+        # Verify the sheet was added
+        assert "Sheet1" in layout._sheets
+        assert layout._sheets["Sheet1"] is sheet_layout
+
+        # Test warning for duplicate sheet
+        layout.add_sheet(ExcelSheetLayout("Sheet1"))
+        # Still only one sheet with the name "Sheet1"
+        assert len(layout._sheets) == 1
 
     def test_set_current_sheet(self):
         """Test setting the current sheet - this method no longer exists."""
@@ -324,6 +325,178 @@ class TestExcelLayout:
             # Verify ref_map was updated
             assert value.id in ref_map
             assert ref_map[value.id] == "D3"
+
+    def test_assign_references_recursive_with_none_cell_ref(self):
+        """Test handling of None cell reference."""
+        # Create mocks
+        mock_workbook = MagicMock()
+        mock_excel_value = MagicMock(spec=ExcelValue)
+        mock_excel_value.id = 123
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Use patch to make xl_rowcol_to_cell return None
+        with patch("gridient.layout.xl_rowcol_to_cell", return_value=None):
+            # This should handle the None case without error
+            layout._assign_references_recursive(mock_excel_value, 0, 0, {})
+
+            # Verify that excel_ref was not set
+            assert not hasattr(mock_excel_value, "_excel_ref")
+
+    def test_assign_references_recursive_with_excel_series_no_index(self):
+        """Test handling of ExcelSeries with no index."""
+        # Create mocks
+        mock_workbook = MagicMock()
+        mock_series = MagicMock(spec=ExcelSeries)
+        mock_series.name = "TestSeries"
+        mock_series.index = None
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Should handle series with no index without error
+        layout._assign_references_recursive(mock_series, 0, 0, {})
+
+    def test_assign_references_recursive_with_table_missing_method(self):
+        """Test handling of ExcelTable without _assign_child_references method."""
+        # Create mocks
+        mock_workbook = MagicMock()
+        mock_table = MagicMock(spec=ExcelTable)
+        mock_table.title = "TestTable"
+
+        # Remove the _assign_child_references method
+        del mock_table._assign_child_references
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Should handle table without method without error
+        layout._assign_references_recursive(mock_table, 0, 0, {})
+
+    def test_assign_references_recursive_with_param_table_missing_method(self):
+        """Test handling of ExcelParameterTable without _assign_child_references method."""
+        # Create mocks
+        mock_workbook = MagicMock()
+        mock_param_table = MagicMock(spec=ExcelParameterTable)
+        mock_param_table.title = "TestParamTable"
+
+        # Remove the _assign_child_references method
+        del mock_param_table._assign_child_references
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Should handle parameter table without method without error
+        layout._assign_references_recursive(mock_param_table, 0, 0, {})
+
+    def test_assign_references_recursive_with_list(self):
+        """Test handling of list components."""
+        # Create mocks
+        mock_workbook = MagicMock()
+        mock_items = [MagicMock(), MagicMock()]
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Should handle list of items without error
+        layout._assign_references_recursive(mock_items, 0, 0, {})
+
+    def test_assign_references_recursive_with_unhandled_type(self):
+        """Test handling of unhandled component types."""
+        # Create mocks
+        mock_workbook = MagicMock()
+
+        # Create a custom class that is not a known component type
+        class UnknownComponent:
+            pass
+
+        unknown_component = UnknownComponent()
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Should handle unknown component type without error
+        layout._assign_references_recursive(unknown_component, 0, 0, {})
+
+    def test_assign_references_recursive_with_formula(self):
+        """Test handling of ExcelFormula."""
+        # Create mocks
+        mock_workbook = MagicMock()
+        mock_formula = MagicMock(spec=ExcelFormula)
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Should handle formula without error
+        layout._assign_references_recursive(mock_formula, 0, 0, {})
+
+    def test_assign_references_recursive_with_literals(self):
+        """Test handling of literal values."""
+        # Create mocks
+        mock_workbook = MagicMock()
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Should handle literal values without error
+        layout._assign_references_recursive(42, 0, 0, {})  # int
+        layout._assign_references_recursive(3.14, 0, 0, {})  # float
+        layout._assign_references_recursive("test", 0, 0, {})  # str
+        layout._assign_references_recursive(True, 0, 0, {})  # bool
+        layout._assign_references_recursive(None, 0, 0, {})  # None
+
+    def test_write_with_component_missing_write_method(self):
+        """Test handling components without write method during write pass."""
+        # Create mocks
+        mock_workbook = MagicMock()
+        mock_workbook._workbook = MagicMock()
+        mock_worksheet = MagicMock()
+        mock_workbook._workbook.add_worksheet.return_value = mock_worksheet
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Create sheet layout with a component that doesn't have a write method
+        sheet_layout = ExcelSheetLayout("TestSheet")
+        sheet_layout.add("Not a real component", 0, 0)
+        layout.add_sheet(sheet_layout)
+
+        # Should handle component without write method
+        layout.write()
+
+        # Verify write was called on worksheet with placeholder text
+        mock_worksheet.write.assert_called_once()
+
+    def test_assign_references_recursive_with_excel_series_with_index(self):
+        """Test handling of ExcelSeries with an index when assigning references."""
+        # Create mocks
+        mock_workbook = MagicMock()
+
+        # Create a real ExcelSeries with values
+        series = ExcelSeries(name="TestSeries", data={"a": 1, "b": 2, "c": 3})
+
+        # Create layout
+        layout = ExcelLayout(mock_workbook)
+
+        # Create a reference map
+        ref_map = {}
+
+        # Patch xl_rowcol_to_cell to return predictable cell references
+        with patch("gridient.layout.xl_rowcol_to_cell") as mock_xl_cell:
+            mock_xl_cell.side_effect = lambda row, col: f"{chr(65 + col)}{row + 1}"  # A1, B1, etc.
+
+            # Call _assign_references_recursive on the series
+            layout._assign_references_recursive(series, 10, 2, ref_map)
+
+            # Verify that cell references were assigned to each value in the series
+            # Each value should have a cell reference with the same column but incrementing rows
+            for i, key in enumerate(series.index):
+                value = series[key]
+                assert hasattr(value, "_excel_ref")
+                # Column C (2) should be constant, row should increment
+                assert value._excel_ref == f"C{11 + i}"  # C11, C12, C13
+                assert value.id in ref_map
 
 
 class TestIntegration:

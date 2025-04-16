@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from gridient.layout import ExcelLayout
 from gridient.tables import ExcelParameterTable, ExcelTable, ExcelTableColumn
 from gridient.values import ExcelSeries, ExcelValue
 
@@ -142,8 +143,6 @@ class TestExcelTableReferenceAssignment:
 
         # Create mock layout manager and ref_map
         # Mock the ExcelLayout type correctly
-        from gridient.layout import ExcelLayout
-
         layout_manager = MagicMock(spec=ExcelLayout)
         ref_map = {}
 
@@ -161,6 +160,61 @@ class TestExcelTableReferenceAssignment:
         # Verify calls for second column
         layout_manager._assign_references_recursive.assert_any_call(series2[0], 2, 1, ref_map)
         layout_manager._assign_references_recursive.assert_any_call(series2[1], 3, 1, ref_map)
+
+    def test_assign_child_references_non_excel_layout(self):
+        """Test _assign_child_references with a non-ExcelLayout layout manager."""
+        # Create a table with some columns
+        table = ExcelTable(title="Test Table")
+
+        # Mock a non-ExcelLayout layout manager
+        mock_layout = MagicMock()  # Not an ExcelLayout
+
+        # Call _assign_child_references
+        # This should log an error and return early without raising exceptions
+        table._assign_child_references(0, 0, mock_layout, {})
+
+        # No assertions needed - we're just checking it doesn't fail
+
+    def test_assign_child_references_no_columns(self):
+        """Test _assign_child_references with a table that has no columns."""
+        # Create a table with no columns
+        table = ExcelTable(title="Empty Table", columns=[])
+
+        # Mock an ExcelLayout
+        mock_layout = MagicMock(spec=ExcelLayout)
+
+        # Call _assign_child_references
+        # This should return early without raising exceptions
+        table._assign_child_references(0, 0, mock_layout, {})
+
+        # Verify layout_manager._assign_references_recursive was not called
+        mock_layout._assign_references_recursive.assert_not_called()
+
+    def test_assign_child_references_column_no_series(self):
+        """Test _assign_child_references with a column that has an empty series."""
+        # Create a table column with an empty series
+        empty_series = ExcelSeries(name="Empty")
+
+        # Create a normal series
+        normal_series = ExcelSeries(name="Normal", data={"a": 1, "b": 2})
+
+        # Create a table with both columns
+        table = ExcelTable(
+            title="Mixed Table",
+            columns=[
+                ExcelTableColumn(series=empty_series),
+                ExcelTableColumn(series=normal_series),
+            ],
+        )
+
+        # Mock an ExcelLayout
+        mock_layout = MagicMock(spec=ExcelLayout)
+
+        # Call _assign_child_references
+        table._assign_child_references(0, 0, mock_layout, {})
+
+        # Verify layout_manager._assign_references_recursive was called only for the normal series
+        assert mock_layout._assign_references_recursive.call_count == len(normal_series.index)
 
 
 class TestExcelTableWriting:
@@ -195,6 +249,33 @@ class TestExcelTableWriting:
         # But we can check that the width tracking is correctly updated
         assert 0 in column_widths  # First column
         assert 1 in column_widths  # Second column
+
+    def test_write_table_with_empty_column(self):
+        """Test write method with a column that has no series."""
+        # Create a normal series and an empty column
+        series1 = ExcelSeries(name="Column 1", data=[1, 2])
+        empty_column = ExcelTableColumn(series=None)
+
+        # Create a table with both columns
+        table = ExcelTable(title="Test Table", columns=[series1, empty_column])
+
+        # Create mocks
+        worksheet = MagicMock()
+        workbook = MagicMock()
+        ref_map = {}
+        column_widths = {}
+
+        # Call write - this should skip the empty column
+        table.write(worksheet, 0, 0, workbook, ref_map, column_widths)
+
+        # Verify title is written
+        worksheet.write.assert_any_call(0, 0, "Test Table")
+
+        # Verify headers are written (even for empty column)
+        worksheet.write.assert_any_call(1, 0, "Column 1")
+
+        # Don't need to assert for the empty column specifically,
+        # just make sure the test runs without error
 
 
 class TestExcelParameterTableCreation:
@@ -248,6 +329,19 @@ class TestExcelParameterTableCreation:
         with pytest.raises(TypeError):
             table.add("not a parameter")
 
+    def test_add_parameter_without_name(self):
+        """Test adding a parameter without a name."""
+        table = ExcelParameterTable(title="Test Parameters")
+
+        # Create parameter without a name
+        param = ExcelValue(42, unit="units")
+
+        # This should print a warning but still add the parameter
+        table.add(param)
+
+        assert len(table.parameters) == 1
+        assert table.parameters[0] is param
+
 
 class TestExcelParameterTableSizeCalculation:
     """Tests for ExcelParameterTable size calculation."""
@@ -283,3 +377,45 @@ class TestExcelParameterTableSizeCalculation:
 
         assert size[0] == 4  # 1 row for title + 1 row for headers + 2 rows for parameters
         assert size[1] == 3  # 3 columns (Parameter, Value, Unit)
+
+
+class TestExcelParameterTableReferenceAssignment:
+    """Tests for ExcelParameterTable reference assignment."""
+
+    def test_assign_child_references(self):
+        """Test _assign_child_references method."""
+        # Create parameters
+        param1 = ExcelValue(1, name="Parameter 1", unit="units")
+        param2 = ExcelValue(2, name="Parameter 2", unit="m/s")
+
+        # Create table
+        table = ExcelParameterTable(title="Test Parameters", parameters=[param1, param2])
+
+        # Create mock layout manager
+        layout_manager = MagicMock(spec=ExcelLayout)
+        ref_map = {}
+
+        # Call _assign_child_references
+        table._assign_child_references(0, 0, layout_manager, ref_map)
+
+        # Verify layout_manager._assign_references_recursive was called for each parameter
+        assert layout_manager._assign_references_recursive.call_count == 2
+
+        # Verify correct positions: row 2 (start_row + title + header) and column 1 (start_col + 1)
+        layout_manager._assign_references_recursive.assert_any_call(param1, 2, 1, ref_map)
+        layout_manager._assign_references_recursive.assert_any_call(param2, 3, 1, ref_map)
+
+    def test_assign_child_references_non_excel_layout(self):
+        """Test _assign_child_references with a non-ExcelLayout layout manager."""
+        # Create a table with parameters
+        param = ExcelValue(1, name="Parameter", unit="units")
+        table = ExcelParameterTable(title="Test Parameters", parameters=[param])
+
+        # Mock a non-ExcelLayout layout manager
+        mock_layout = MagicMock()  # Not an ExcelLayout
+
+        # Call _assign_child_references
+        # This should log an error and return early without raising exceptions
+        table._assign_child_references(0, 0, mock_layout, {})
+
+        # No assertions needed - we're just checking it doesn't fail
