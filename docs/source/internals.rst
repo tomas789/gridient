@@ -267,6 +267,54 @@ Implementation details:
 * The reference map ensures formula dependencies are correctly resolved
 * Column width tracking happens during the write process to accurately reflect content
 
+Cross-Sheet References
+---------------------
+
+Gridient provides robust support for cross-sheet references, allowing formulas in one worksheet to reference cells in another worksheet.
+
+Key features:
+
+* **Sheet context tracking**: Each value maintains awareness of its sheet context during the layout phase
+* **Reference map with sheet names**: References are stored as tuples of ``(sheet_name, cell_reference)`` in the reference map
+* **Automatic sheet prefixing**: When rendering formulas, sheet names are automatically prefixed when referencing cells in other sheets
+* **Special handling for parameters**: Parameter references maintain absolute cell references (``$A$1``) across sheets
+
+Implementation details:
+
+* The ``ref_map`` dictionary maps value IDs to tuples containing both sheet name and cell reference
+* During the layout phase, each ``ExcelValue`` is assigned a reference that includes its sheet context
+* The ``_render_formula_or_value`` and ``_render_arg`` methods in ``ExcelValue`` and ``ExcelFormula`` check if the referenced sheet differs from the current sheet
+* When a cross-sheet reference is detected, the formula is rendered with proper sheet name prefixing (e.g., ``=Sheet1!A1`` or ``='Sheet with spaces'!A1``)
+* Sheet names with spaces are properly quoted to maintain Excel formula compatibility
+* Parameters maintain absolute references with proper sheet prefixing (e.g., ``=Sheet1!$A$1``)
+
+Example of cross-sheet reference handling:
+
+.. code-block:: python
+
+    # Create a workbook with two sheets
+    workbook = gr.ExcelWorkbook("multi_sheet.xlsx")
+    layout = gr.ExcelLayout(workbook)
+    
+    # Create sheets
+    sheet1 = gr.ExcelSheetLayout("Parameters")
+    sheet2 = gr.ExcelSheetLayout("Calculations")
+    
+    # Add parameter to first sheet
+    param = gr.ExcelValue(100, name="Base Value", is_parameter=True)
+    sheet1.add(param, 1, 1)
+    
+    # Reference the parameter in second sheet
+    formula = gr.ExcelValue(param * 2)
+    sheet2.add(formula, 1, 1)
+    
+    # Add sheets to layout and write
+    layout.add_sheet(sheet1)
+    layout.add_sheet(sheet2)
+    layout.write()
+    
+    # The formula in Calculations!A1 will be: =Parameters!$B$2*2
+
 Process Flow
 -----------
 
