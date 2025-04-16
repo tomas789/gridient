@@ -73,8 +73,8 @@ class TestExcelFormulaRendering:
 
     def test_render_basic_infix_operators(self):
         """Test rendering basic infix operators."""
-        val1 = ExcelValue(5)
-        val2 = ExcelValue(3)
+        val1 = ExcelValue(5, is_parameter=True)
+        val2 = ExcelValue(3, is_parameter=True)
         val1._excel_ref = "A1"
         val2._excel_ref = "B1"
 
@@ -102,8 +102,8 @@ class TestExcelFormulaRendering:
 
     def test_render_comparison_operators(self):
         """Test rendering comparison operators."""
-        val1 = ExcelValue(5)
-        val2 = ExcelValue(3)
+        val1 = ExcelValue(5, is_parameter=True)
+        val2 = ExcelValue(3, is_parameter=True)
         val1._excel_ref = "A1"
         val2._excel_ref = "B1"
 
@@ -135,9 +135,9 @@ class TestExcelFormulaRendering:
 
     def test_render_function_calls(self):
         """Test rendering function calls."""
-        val1 = ExcelValue(5)
-        val2 = ExcelValue(3)
-        val3 = ExcelValue(7)
+        val1 = ExcelValue(5, is_parameter=True)
+        val2 = ExcelValue(3, is_parameter=True)
+        val3 = ExcelValue(7, is_parameter=True)
         val1._excel_ref = "A1"
         val2._excel_ref = "B1"
         val3._excel_ref = "C1"
@@ -162,7 +162,7 @@ class TestExcelFormulaRendering:
 
     def test_render_unary_minus(self):
         """Test rendering unary minus."""
-        val = ExcelValue(5)
+        val = ExcelValue(5, is_parameter=True)
         val._excel_ref = "A1"
 
         ref_map = {val.id: "A1"}
@@ -173,7 +173,7 @@ class TestExcelFormulaRendering:
 
     def test_render_with_different_argument_types(self):
         """Test rendering with different argument types."""
-        val = ExcelValue(5)
+        val = ExcelValue(5, is_parameter=True)
         val._excel_ref = "A1"
 
         ref_map = {val.id: "A1"}
@@ -201,9 +201,9 @@ class TestExcelFormulaParenthesesHandling:
 
     def test_parentheses_for_nested_operators(self):
         """Test parentheses are added for nested operators based on precedence."""
-        val1 = ExcelValue(2)
-        val2 = ExcelValue(3)
-        val3 = ExcelValue(4)
+        val1 = ExcelValue(2, is_parameter=True)
+        val2 = ExcelValue(3, is_parameter=True)
+        val3 = ExcelValue(4, is_parameter=True)
 
         val1._excel_ref = "A1"
         val2._excel_ref = "B1"
@@ -228,9 +228,9 @@ class TestExcelFormulaParenthesesHandling:
 
     def test_no_unnecessary_parentheses(self):
         """Test that unnecessary parentheses are not added."""
-        val1 = ExcelValue(2)
-        val2 = ExcelValue(3)
-        val3 = ExcelValue(4)
+        val1 = ExcelValue(2, is_parameter=True)
+        val2 = ExcelValue(3, is_parameter=True)
+        val3 = ExcelValue(4, is_parameter=True)
 
         val1._excel_ref = "A1"
         val2._excel_ref = "B1"
