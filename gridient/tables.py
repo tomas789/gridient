@@ -69,11 +69,7 @@ class ExcelTable:
         if self.columns:
             # Ensure series exists before checking length
             max_data_rows = max(
-                (
-                    len(table_col.series)
-                    for table_col in self.columns
-                    if table_col.series
-                ),
+                (len(table_col.series) for table_col in self.columns if table_col.series),
                 default=0,
             )
         rows += max_data_rows
@@ -92,9 +88,7 @@ class ExcelTable:
         from .layout import ExcelLayout
 
         if not isinstance(layout_manager, ExcelLayout):
-            logger.error(
-                "layout_manager is not an ExcelLayout instance in ExcelTable._assign_child_references"
-            )
+            logger.error("layout_manager is not an ExcelLayout instance in ExcelTable._assign_child_references")
             return
 
         current_row = start_row
@@ -112,9 +106,7 @@ class ExcelTable:
             for r_idx, key in enumerate(series.index):
                 value_obj = series[key]
                 current_data_row = data_start_row + r_idx
-                layout_manager._assign_references_recursive(
-                    value_obj, current_data_row, current_data_col, ref_map
-                )
+                layout_manager._assign_references_recursive(value_obj, current_data_row, current_data_col, ref_map)
 
     def write(
         self,
@@ -135,28 +127,20 @@ class ExcelTable:
             if column_widths is not None:
                 # Estimate width - assumes title spans first column for now
                 width = len(str(self.title)) + 1.5
-                column_widths[current_col] = max(
-                    column_widths.get(current_col, 0), width
-                )
+                column_widths[current_col] = max(column_widths.get(current_col, 0), width)
             current_row += 1  # Move down for headers
 
         # Write headers and track width
         header_col = current_col
-        max_rows = (
-            0  # Keep track of max rows for data area size calculation if needed later
-        )
+        max_rows = 0  # Keep track of max rows for data area size calculation if needed later
         if self.columns:  # Only write headers if columns exist
             for table_col in self.columns:
                 # TODO: Add header styling
-                header_text = (
-                    table_col.series.name if table_col.series else ""
-                )  # Handle missing series name
+                header_text = table_col.series.name if table_col.series else ""  # Handle missing series name
                 worksheet.write(current_row, header_col, header_text)
                 if column_widths is not None:
                     width = len(str(header_text)) + 1.5
-                    column_widths[header_col] = max(
-                        column_widths.get(header_col, 0), width
-                    )
+                    column_widths[header_col] = max(column_widths.get(header_col, 0), width)
                 if table_col.series:
                     max_rows = max(max_rows, len(table_col.series))
                 header_col += 1
@@ -190,9 +174,7 @@ class ExcelTable:
 class ExcelParameterTable:
     """Specialized table for displaying named parameters (Name, Value, Unit)."""
 
-    def __init__(
-        self, title: Optional[str] = None, parameters: Optional[List[ExcelValue]] = None
-    ):
+    def __init__(self, title: Optional[str] = None, parameters: Optional[List[ExcelValue]] = None):
         self.title = title
         self.parameters: List[ExcelValue] = parameters if parameters is not None else []
 
@@ -201,9 +183,7 @@ class ExcelParameterTable:
         if not isinstance(value, ExcelValue):
             raise TypeError("Parameter must be an ExcelValue")
         if not value.name:
-            print(
-                f"Warning: Adding parameter without a name to ParameterTable: {value}"
-            )
+            print(f"Warning: Adding parameter without a name to ParameterTable: {value}")
         self.parameters.append(value)
 
     def get_size(self) -> Tuple[int, int]:
@@ -228,9 +208,7 @@ class ExcelParameterTable:
         from .layout import ExcelLayout
 
         if not isinstance(layout_manager, ExcelLayout):
-            logger.error(
-                "layout_manager is not an ExcelLayout instance in ExcelParameterTable._assign_child_references"
-            )
+            logger.error("layout_manager is not an ExcelLayout instance in ExcelParameterTable._assign_child_references")
             return
 
         current_row = start_row
@@ -239,9 +217,7 @@ class ExcelParameterTable:
         current_row += 1
         value_col = start_col + 1
         for param_value in self.parameters:
-            layout_manager._assign_references_recursive(
-                param_value, current_row, value_col, ref_map
-            )
+            layout_manager._assign_references_recursive(param_value, current_row, value_col, ref_map)
             current_row += 1
 
     def write(
@@ -270,15 +246,12 @@ class ExcelParameterTable:
             worksheet.write(current_row, col + h_col_offset, header)
             if column_widths is not None:
                 width = len(str(header)) + 1.5
-                column_widths[col + h_col_offset] = max(
-                    column_widths.get(col + h_col_offset, 0), width
-                )
+                column_widths[col + h_col_offset] = max(column_widths.get(col + h_col_offset, 0), width)
         current_row += 1
 
         # Write parameter rows and track widths
         for param in self.parameters:
             name_cell = param.name or ""
-            value_cell = param  # The ExcelValue itself handles writing
             unit_cell = param.unit or ""
 
             # Write name and unit as simple strings and track width
