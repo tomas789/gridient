@@ -13,6 +13,7 @@ Welcome to gridient's documentation!
    :caption: Contents:
 
    internals
+   examples
 
 .. toctree::
    :maxdepth: 1
