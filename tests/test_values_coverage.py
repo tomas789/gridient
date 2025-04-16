@@ -74,7 +74,7 @@ class TestExcelValueCoverage:
 
         # Operations should raise ValueError due to different indexes
         with pytest.raises(ValueError) as excinfo:
-            result = series1 + series2
+            _ = series1 + series2
 
         assert "different indexes" in str(excinfo.value)
 
