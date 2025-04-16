@@ -63,15 +63,11 @@ class ExcelLayout:
         """Add a sheet layout to the workbook."""
         if sheet.name in self._sheets:
             # Handle duplicate sheet names if necessary (e.g., append number)
-            print(
-                f"Warning: Duplicate sheet name '{sheet.name}'. Overwriting previous layout."
-            )
+            print(f"Warning: Duplicate sheet name '{sheet.name}'. Overwriting previous layout.")
         self._sheets[sheet.name] = sheet
 
     # --- IMPLEMENTED Recursive Reference Assignment Helper ---
-    def _assign_references_recursive(
-        self, component: Any, start_row: int, start_col: int, ref_map: Dict[int, str]
-    ):
+    def _assign_references_recursive(self, component: Any, start_row: int, start_col: int, ref_map: Dict[int, str]):
         """Recursively assign Excel references, handling nested stacks and components."""
         # logger.debug(f"Assigning refs for {type(component)} at ({start_row}, {start_col})") # Optional debug
         if isinstance(component, ExcelValue):
@@ -97,38 +93,26 @@ class ExcelLayout:
                 for i, key in enumerate(component.index):
                     value_obj = component[key]  # Gets the ExcelValue wrapper
                     # Recursively assign refs for the value object within the series cell
-                    self._assign_references_recursive(
-                        value_obj, current_row, current_col, ref_map
-                    )
+                    self._assign_references_recursive(value_obj, current_row, current_col, ref_map)
                     current_row += 1  # Assume vertical layout for now
             else:
-                logger.warning(
-                    f"ExcelSeries '{component.name}' has no index, cannot assign references."
-                )
+                logger.warning(f"ExcelSeries '{component.name}' has no index, cannot assign references.")
 
         elif isinstance(component, ExcelTable):
             # Delegate to the table's own reference assignment method
-            if hasattr(component, "_assign_child_references") and callable(
-                component._assign_child_references
-            ):
+            if hasattr(component, "_assign_child_references") and callable(component._assign_child_references):
                 # logger.debug(f"  Delegating ref assignment to ExcelTable '{component.title}'") # Optional debug
                 component._assign_child_references(start_row, start_col, self, ref_map)
             else:
-                logger.error(
-                    f"ExcelTable '{component.title}' is missing _assign_child_references method."
-                )
+                logger.error(f"ExcelTable '{component.title}' is missing _assign_child_references method.")
 
         elif isinstance(component, ExcelParameterTable):
             # Delegate to the param table's own reference assignment method
-            if hasattr(component, "_assign_child_references") and callable(
-                component._assign_child_references
-            ):
+            if hasattr(component, "_assign_child_references") and callable(component._assign_child_references):
                 # logger.debug(f"  Delegating ref assignment to ExcelParameterTable '{component.title}'") # Optional debug
                 component._assign_child_references(start_row, start_col, self, ref_map)
             else:
-                logger.error(
-                    f"ExcelParameterTable '{component.title}' is missing _assign_child_references method."
-                )
+                logger.error(f"ExcelParameterTable '{component.title}' is missing _assign_child_references method.")
 
         elif isinstance(component, ExcelStack):
             # Delegate reference assignment to the stack's method
@@ -136,12 +120,8 @@ class ExcelLayout:
             component._assign_child_references(start_row, start_col, self, ref_map)
 
         # Check for unhandled types that might contain ExcelValue objects needing references
-        elif isinstance(
-            component, (list, tuple)
-        ):  # Example: Handle lists passed directly?
-            logger.warning(
-                f"Directly assigning references for items in a {type(component)}. Behavior might be unexpected."
-            )
+        elif isinstance(component, (list, tuple)):  # Example: Handle lists passed directly?
+            logger.warning(f"Directly assigning references for items in a {type(component)}. Behavior might be unexpected.")
             for item in component:
                 # This assumes items in list don't have their own layout offset - needs refinement
                 self._assign_references_recursive(item, start_row, start_col, ref_map)
@@ -160,9 +140,7 @@ class ExcelLayout:
             )
 
     # --- Modified Original Assign References --- (Calls the recursive helper)
-    def _assign_references(
-        self, placed_component: PlacedComponent, ref_map: Dict[int, str]
-    ):
+    def _assign_references(self, placed_component: PlacedComponent, ref_map: Dict[int, str]):
         """Assign references using the recursive helper."""
         comp = placed_component.component
         start_row, start_col = placed_component.row, placed_component.col
@@ -191,13 +169,9 @@ class ExcelLayout:
             print("Starting write pass...")
             for sheet_name, sheet_layout in self._sheets.items():
                 # Ensure workbook object is available via self.workbook._workbook
-                worksheet = self.workbook._workbook.add_worksheet(
-                    sheet_name
-                )  # Use underlying workbook
+                worksheet = self.workbook._workbook.add_worksheet(sheet_name)  # Use underlying workbook
                 worksheets[sheet_name] = worksheet  # Store worksheet reference
-                sheet_column_widths[
-                    sheet_name
-                ] = {}  # Initialize width tracker for sheet
+                sheet_column_widths[sheet_name] = {}  # Initialize width tracker for sheet
                 current_sheet_widths = sheet_column_widths[sheet_name]
 
                 print(f" Writing sheet: {sheet_name}")
@@ -206,9 +180,7 @@ class ExcelLayout:
                     row, col = placed_component.row, placed_component.col
 
                     # --- Use the component's write method --- (Handles stacks now)
-                    if hasattr(comp_to_write, "write") and callable(
-                        comp_to_write.write
-                    ):
+                    if hasattr(comp_to_write, "write") and callable(comp_to_write.write):
                         # Pass the necessary context for writing, including width tracker
                         comp_to_write.write(
                             worksheet,
@@ -223,9 +195,7 @@ class ExcelLayout:
                         logger.warning(
                             f"Component {type(comp_to_write)} at ({row},{col}) on sheet '{sheet_name}' has no write method."
                         )
-                        worksheet.write(
-                            row, col, f"Unhandled: {type(comp_to_write)}"
-                        )  # Write placeholder
+                        worksheet.write(row, col, f"Unhandled: {type(comp_to_write)}")  # Write placeholder
             print("Write pass complete.")
 
             # --- Auto-Width Pass --- (No changes needed here)
@@ -240,9 +210,7 @@ class ExcelLayout:
                         print(f" Applying auto-width to sheet: {sheet_name}")
                         for col_idx, width in column_widths.items():
                             # Apply capping and minimum width
-                            adjusted_width = max(
-                                MIN_COL_WIDTH, min(width, MAX_COL_WIDTH)
-                            )
+                            adjusted_width = max(MIN_COL_WIDTH, min(width, MAX_COL_WIDTH))
                             worksheet.set_column(col_idx, col_idx, adjusted_width)
             print("Auto-width pass complete.")
 

@@ -21,42 +21,26 @@ hours = list(range(HOURS_IN_DAY))
 
 # Dummy Consumption (kWh per hour)
 consumption_data = np.random.rand(HOURS_IN_DAY) * 2 + 0.5  # 0.5 to 2.5 kWh
-consumption_kwh = gr.ExcelSeries.from_pandas(
-    pd.Series(consumption_data, index=hours), name="Consumption (kWh)", format="0.00"
-)
+consumption_kwh = gr.ExcelSeries.from_pandas(pd.Series(consumption_data, index=hours), name="Consumption (kWh)", format="0.00")
 
 # Dummy Hourly Price (EUR/MWh) - Duck Curve
 price_peak = 160
 price_low = 80
 price_eur_mwh_data = price_low + (price_peak - price_low) * (
-    np.sin(np.linspace(0, np.pi, HOURS_IN_DAY) - np.pi / 2) * 0.4
-    + np.sin(np.linspace(0, 4 * np.pi, HOURS_IN_DAY)) * 0.1
-    + 0.5
+    np.sin(np.linspace(0, np.pi, HOURS_IN_DAY) - np.pi / 2) * 0.4 + np.sin(np.linspace(0, 4 * np.pi, HOURS_IN_DAY)) * 0.1 + 0.5
 )  # Base curve + noise
-price_eur_mwh = gr.ExcelSeries.from_pandas(
-    pd.Series(price_eur_mwh_data, index=hours), name="Price (€/MWh)", format="0.00"
-)
+price_eur_mwh = gr.ExcelSeries.from_pandas(pd.Series(price_eur_mwh_data, index=hours), name="Price (€/MWh)", format="0.00")
 
 # Dummy Tariff Type (Low/High)
-tariff_type_data = (
-    ["Low"] * 8 + ["High"] * 12 + ["Low"] * 4
-)  # Example: Night/Morning Low, Day High
-tariff_type = gr.ExcelSeries.from_pandas(
-    pd.Series(tariff_type_data, index=hours), name="Tariff Type"
-)
+tariff_type_data = ["Low"] * 8 + ["High"] * 12 + ["Low"] * 4  # Example: Night/Morning Low, Day High
+tariff_type = gr.ExcelSeries.from_pandas(pd.Series(tariff_type_data, index=hours), name="Tariff Type")
 
 # --- Define Excel Objects for Parameters ---
 param_eur_czk = gr.ExcelValue(EUR_CZK_RATE, name="€/Kč Rate", format="0.00")
-param_fee_high = gr.ExcelValue(
-    FEE_HIGH_TARIFF_CZK_KWH, name="Fee High", unit="Kč/kWh", format="0.00"
-)
-param_fee_low = gr.ExcelValue(
-    FEE_LOW_TARIFF_CZK_KWH, name="Fee Low", unit="Kč/kWh", format="0.00"
-)
+param_fee_high = gr.ExcelValue(FEE_HIGH_TARIFF_CZK_KWH, name="Fee High", unit="Kč/kWh", format="0.00")
+param_fee_low = gr.ExcelValue(FEE_LOW_TARIFF_CZK_KWH, name="Fee Low", unit="Kč/kWh", format="0.00")
 
-params_table = gr.ExcelParameterTable(
-    "Parameters", [param_eur_czk, param_fee_high, param_fee_low]
-)
+params_table = gr.ExcelParameterTable("Parameters", [param_eur_czk, param_fee_high, param_fee_low])
 
 # --- Calculations (Formulas) ---
 

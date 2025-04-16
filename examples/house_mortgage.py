@@ -16,14 +16,10 @@ OUTPUT_FILENAME = "house_mortgage_output.xlsx"
 
 # --- Define Excel Objects for Parameters ---
 param_loan = gr.ExcelValue(LOAN_AMOUNT, name="Loan Amount", unit="Kč", format="#,##0")
-param_rate_annual = gr.ExcelValue(
-    ANNUAL_INTEREST_RATE, name="Annual Interest Rate", format="0.00%"
-)
+param_rate_annual = gr.ExcelValue(ANNUAL_INTEREST_RATE, name="Annual Interest Rate", format="0.00%")
 param_term_years = gr.ExcelValue(LOAN_TERM_YEARS, name="Loan Term (Years)", format="0")
 
-params_table = gr.ExcelParameterTable(
-    "Mortgage Parameters", [param_loan, param_rate_annual, param_term_years]
-)
+params_table = gr.ExcelParameterTable("Mortgage Parameters", [param_loan, param_rate_annual, param_term_years])
 
 # --- Intermediate Calculations ---
 monthly_rate = param_rate_annual / 12
@@ -54,9 +50,7 @@ month_number_col = gr.ExcelSeries(name="Month", format="0", index=periods)
 year_number_col = gr.ExcelSeries(name="Year", format="0", index=periods)
 start_balance = gr.ExcelSeries(name="Start Balance", format="#,##0.00", index=periods)
 interest_paid = gr.ExcelSeries(name="Interest Paid", format="#,##0.00", index=periods)
-interest_pct_of_payment = gr.ExcelSeries(
-    name="Interest % of Payment", format="0.0%", index=periods
-)
+interest_pct_of_payment = gr.ExcelSeries(name="Interest % of Payment", format="0.0%", index=periods)
 principal_paid = gr.ExcelSeries(name="Principal Paid", format="#,##0.00", index=periods)
 end_balance = gr.ExcelSeries(name="End Balance", format="#,##0.00", index=periods)
 
@@ -98,9 +92,7 @@ sheet = gr.ExcelSheetLayout("Mortgage Details")
 
 # --- Create Stacks ---
 # Stack for parameters and calculated values
-vstack_params_calcs = gr.ExcelStack(
-    orientation="vertical", spacing=1, name="Params & Calcs"
-)
+vstack_params_calcs = gr.ExcelStack(orientation="vertical", spacing=1, name="Params & Calcs")
 vstack_params_calcs.add(params_table)
 # Small horizontal stack for the label + value
 hstack_payment = gr.ExcelStack(orientation="horizontal", spacing=0, name="Payment Line")
@@ -109,9 +101,7 @@ hstack_payment.add(monthly_payment)
 vstack_params_calcs.add(hstack_payment)
 
 # Main stack for the sheet
-vstack_main = gr.ExcelStack(
-    orientation="vertical", spacing=2, name="Main Mortgage Layout"
-)
+vstack_main = gr.ExcelStack(orientation="vertical", spacing=2, name="Main Mortgage Layout")
 vstack_main.add(vstack_params_calcs)
 vstack_main.add(amortization_table)
 

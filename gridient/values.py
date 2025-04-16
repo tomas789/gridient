@@ -49,9 +49,7 @@ class ExcelValue:
         self.unit = unit
         self.style = style
         self._excel_ref: Optional[str] = None  # Assigned during layout
-        self._parent_series: Optional["ExcelSeries"] = (
-            None  # Link back to series if part of one
-        )
+        self._parent_series: Optional["ExcelSeries"] = None  # Link back to series if part of one
         self._series_key: Optional[Any] = None  # Key within the parent series
 
     @property
@@ -85,9 +83,7 @@ class ExcelValue:
                         f"Rendering reference to unplaced inner ExcelValue {inner_value.id}. Result might be unexpected."
                     )
                     # Return the literal value of the unplaced inner value as a fallback
-                    return inner_value._render_formula_or_value(
-                        ref_map
-                    )  # Recursive call for the *inner* literal
+                    return inner_value._render_formula_or_value(ref_map)  # Recursive call for the *inner* literal
 
             # Create the formula string "=Reference"
             formula_str = "=" + ref
@@ -95,14 +91,10 @@ class ExcelValue:
             if inner_value._parent_series is None:
                 try:
                     row, col = xl_cell_to_rowcol(ref)
-                    absolute_ref = xl_rowcol_to_cell(
-                        row, col, row_abs=True, col_abs=True
-                    )
+                    absolute_ref = xl_rowcol_to_cell(row, col, row_abs=True, col_abs=True)
                     formula_str = "=" + absolute_ref
                 except Exception:
-                    logger.warning(
-                        f"Could not make reference absolute for inner value ref {ref}"
-                    )
+                    logger.warning(f"Could not make reference absolute for inner value ref {ref}")
             return formula_str  # Return e.g., "=$C$4" or "=Sheet1!A5"
         else:
             # Value is a literal, return it directly
@@ -159,9 +151,7 @@ class ExcelValue:
             column_widths[col] = max(column_widths.get(col, 0), width)
 
     # --- Operator Overloading ---
-    def _create_formula(
-        self, op_name: str, other: Any, reverse: bool = False
-    ) -> "ExcelFormula":
+    def _create_formula(self, op_name: str, other: Any, reverse: bool = False) -> "ExcelFormula":
         """Helper to create ExcelFormula object for binary operations."""
         other_val: Union[ExcelValue, ExcelFormula]
         if not isinstance(other, (ExcelValue, ExcelFormula)):
@@ -246,9 +236,7 @@ class ExcelValue:
         return (1, 1)
 
     def __repr__(self) -> str:
-        value_repr = (
-            repr(self._value) if self._value is not self else f"Literal({self.id})"
-        )
+        value_repr = repr(self._value) if self._value is not self else f"Literal({self.id})"
         return f"ExcelValue(id={self.id}, name='{self.name}', value={value_repr}, ref='{self._excel_ref or 'Unset'}')"
 
 
@@ -296,9 +284,7 @@ class ExcelFormula:
                 if arg._parent_series is None:
                     try:
                         row, col = xl_cell_to_rowcol(ref)
-                        rendered_ref = xl_rowcol_to_cell(
-                            row, col, row_abs=True, col_abs=True
-                        )
+                        rendered_ref = xl_rowcol_to_cell(row, col, row_abs=True, col_abs=True)
                     except Exception:
                         # If ref is not a valid cell ref (e.g., range), return as is
                         logger.warning(f"Could not make reference absolute for {ref}")
@@ -308,9 +294,7 @@ class ExcelFormula:
                 # --- Fallback for UNPLACED values ---
                 # Value is UNPLACED (<Unplaced...>) or ref is None.
                 # Render its internal value instead.
-                logger.debug(
-                    f"Unplaced/missing ref for ExcelValue {arg.id}. Rendering internal value."
-                )
+                logger.debug(f"Unplaced/missing ref for ExcelValue {arg.id}. Rendering internal value.")
                 # Check the internal value for fallback rendering
                 internal_value = arg.value  # Access the wrapped value/formula
                 return self._render_arg(internal_value, ref_map, parent_precedence)
@@ -346,9 +330,7 @@ class ExcelFormula:
         """Renders the formula to its Excel string representation with proper parentheses."""
         current_precedence = self.get_precedence()
         # Pass current precedence down to _render_arg
-        rendered_args = [
-            self._render_arg(arg, ref_map, current_precedence) for arg in self.arguments
-        ]
+        rendered_args = [self._render_arg(arg, ref_map, current_precedence) for arg in self.arguments]
 
         # Basic infix operators
         if self.operator_or_function in [
@@ -375,13 +357,9 @@ class ExcelFormula:
                     return f"=-{rendered_args[0]}"
             # Handle binary infix
             elif len(rendered_args) == 2:
-                return (
-                    f"={rendered_args[0]}{self.operator_or_function}{rendered_args[1]}"
-                )
+                return f"={rendered_args[0]}{self.operator_or_function}{rendered_args[1]}"
             else:
-                raise ValueError(
-                    f"Operator {self.operator_or_function} expects 1 or 2 arguments, got {len(rendered_args)}"
-                )
+                raise ValueError(f"Operator {self.operator_or_function} expects 1 or 2 arguments, got {len(rendered_args)}")
         # Function call style
         else:
             args_str = ",".join(rendered_args)
@@ -501,21 +479,15 @@ class ExcelSeries:
         for key in self.index:
             yield self[key]
 
-    def _apply_operation(
-        self, other, op_name: str, reverse: bool = False
-    ) -> "ExcelSeries":
+    def _apply_operation(self, other, op_name: str, reverse: bool = False) -> "ExcelSeries":
         """Apply an operation element-wise."""
-        new_series = ExcelSeries(
-            name=self.name, format=self.format, style=self.style, index=self.index
-        )
+        new_series = ExcelSeries(name=self.name, format=self.format, style=self.style, index=self.index)
         op_func = getattr(ExcelValue, f"__{op_name}__")
         rop_func = getattr(ExcelValue, f"__r{op_name}__")
 
         if isinstance(other, ExcelSeries):
             if self.index != other.index:
-                raise ValueError(
-                    "Cannot perform operation on series with different indexes"
-                )
+                raise ValueError("Cannot perform operation on series with different indexes")
             for key in self.index:
                 # Perform operation element-wise
                 if reverse:

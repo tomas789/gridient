@@ -21,9 +21,7 @@ class ExcelWorkbook:
         """Add a new worksheet to the workbook."""
         return self._workbook.add_worksheet(name)
 
-    def get_combined_format(
-        self, style: Optional[ExcelStyle], num_format: Optional[str]
-    ):
+    def get_combined_format(self, style: Optional[ExcelStyle], num_format: Optional[str]):
         """Get or create a cached xlsxwriter format object combining style and number format."""
         # Create a unique key for the combination
         style_props = tuple(sorted(style.__dict__.items())) if style else tuple()

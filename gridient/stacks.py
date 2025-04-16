@@ -30,15 +30,11 @@ class ExcelStack:
     name: Optional[str] = None  # Optional name for debugging
 
     # Keep track of calculated size
-    _calculated_size: Optional[Tuple[int, int]] = field(
-        default=None, init=False, repr=False
-    )
+    _calculated_size: Optional[Tuple[int, int]] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         if self.orientation not in ("vertical", "horizontal"):
-            raise ValueError(
-                f"Invalid stack orientation: '{self.orientation}'. Must be 'vertical' or 'horizontal'."
-            )
+            raise ValueError(f"Invalid stack orientation: '{self.orientation}'. Must be 'vertical' or 'horizontal'.")
 
     def add(self, component: LayoutComponent):
         """Add a component (ExcelValue, ExcelTable, ExcelSeries, ExcelStack) to the stack."""
@@ -106,9 +102,7 @@ class ExcelStack:
             child_start_row = current_row
             child_start_col = current_col
 
-            layout_manager._assign_references_recursive(
-                child, child_start_row, child_start_col, ref_map
-            )
+            layout_manager._assign_references_recursive(child, child_start_row, child_start_col, ref_map)
 
             # Update position for the next child based on orientation and spacing
             child_rows, child_cols = (0, 0)
@@ -121,13 +115,9 @@ class ExcelStack:
                 )  # Use fallback size from get_size warning
 
             if self.orientation == "vertical":
-                current_row += child_rows + (
-                    self.spacing if i < len(self.children) - 1 else 0
-                )
+                current_row += child_rows + (self.spacing if i < len(self.children) - 1 else 0)
             elif self.orientation == "horizontal":
-                current_col += child_cols + (
-                    self.spacing if i < len(self.children) - 1 else 0
-                )
+                current_col += child_cols + (self.spacing if i < len(self.children) - 1 else 0)
 
     def write(
         self,
@@ -149,9 +139,7 @@ class ExcelStack:
         for i, child in enumerate(self.children):
             child_start_row = current_row
             child_start_col = current_col
-            logger.debug(
-                f"  Writing child {i} ({type(child)}) at ({child_start_row}, {child_start_col})"
-            )
+            logger.debug(f"  Writing child {i} ({type(child)}) at ({child_start_row}, {child_start_col})")
 
             # Use the component's own write method
             if hasattr(child, "write") and callable(child.write):
@@ -167,9 +155,7 @@ class ExcelStack:
                 logger.warning(
                     f"  Component {type(child)} in stack '{self.name}' at ({child_start_row},{child_start_col}) has no write method."
                 )
-                worksheet.write(
-                    child_start_row, child_start_col, f"Unhandled: {type(child)}"
-                )
+                worksheet.write(child_start_row, child_start_col, f"Unhandled: {type(child)}")
 
             # Update position for the next child
             child_rows, child_cols = (0, 0)
@@ -182,13 +168,9 @@ class ExcelStack:
                 )  # Use fallback size from get_size warning
 
             if self.orientation == "vertical":
-                current_row += child_rows + (
-                    self.spacing if i < len(self.children) - 1 else 0
-                )
+                current_row += child_rows + (self.spacing if i < len(self.children) - 1 else 0)
             elif self.orientation == "horizontal":
-                current_col += child_cols + (
-                    self.spacing if i < len(self.children) - 1 else 0
-                )
+                current_col += child_cols + (self.spacing if i < len(self.children) - 1 else 0)
 
     def __repr__(self) -> str:
         return f"ExcelStack(name='{self.name}', orientation='{self.orientation}', children={len(self.children)})"

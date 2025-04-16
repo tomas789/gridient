@@ -50,9 +50,7 @@ def test_example_runs_without_error(example_script):
         runpy.run_path(script_path, run_name="__main__")
         print(f"Example {example_script} completed successfully.")
     except Exception as e:
-        pytest.fail(
-            f"Example script {example_script} failed with exception: \n{type(e).__name__}: {e}"
-        )
+        pytest.fail(f"Example script {example_script} failed with exception: \n{type(e).__name__}: {e}")
 
     # 3. Check if the output file exists AFTER running the script
     assert os.path.exists(output_file_path), (
@@ -68,9 +66,7 @@ def cleanup_generated_files():
     yield  # Let the tests run
     # This code runs after all tests in the session
     print("\nFinal cleanup of generated Excel files...")
-    files_to_remove = [
-        os.path.join(PROJECT_ROOT, fname) for fname in EXAMPLE_OUTPUT_FILES.values()
-    ]
+    files_to_remove = [os.path.join(PROJECT_ROOT, fname) for fname in EXAMPLE_OUTPUT_FILES.values()]
 
     for f_path in files_to_remove:
         if os.path.exists(f_path):
