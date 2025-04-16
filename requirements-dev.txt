@@ -1,2 +1,4 @@
 pytest
 ruff
+sphinx
+sphinx-rtd-theme
