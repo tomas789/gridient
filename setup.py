@@ -8,7 +8,6 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="gridient",
-    version="0.1.0",
     author="Your Name",  # TODO: Replace with your name
     author_email="your.email@example.com",  # TODO: Replace with your email
     description="A Python library for writing calculations to Excel while preserving formulas.",
@@ -17,6 +16,8 @@ setup(
     url="https://github.com/yourusername/gridient",  # TODO: Replace with your repo URL
     packages=find_packages(),
     install_requires=requirements,
+    setup_requires=["setuptools_scm"],
+    use_scm_version=True,
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",  # Choose your license
