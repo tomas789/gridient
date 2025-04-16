@@ -55,6 +55,7 @@ layout.write()
 - Parameters should have an option to provide a name. Such parameter shuld than be referenced by name in formulas. There should be a unique-ness check.
 - Check rules for parameter names.
 - Add themes: The user would pick a theme and it would style tables and values accordingly.
+- Support for transposed tables.
 - Support for directly touching the xlsxwriter API.
 - Support for color of the sheet.
 - Support for hooks. Such that user can override internal data structures at any step of the process.
