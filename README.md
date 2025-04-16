@@ -1,6 +1,6 @@
-# ExcelAlchemy
+# Gridient
 
-A Python library designed to simplify writing complex calculations and data structures to Excel files while preserving the underlying formulas. Define your logic in Python using familiar operators and let ExcelAlchemy translate it into live Excel formulas.
+A Python library designed to simplify writing complex calculations and data structures to Excel files while preserving the underlying formulas. Define your logic in Python using familiar operators and let Gridient translate it into live Excel formulas.
 
 ## Features
 
@@ -22,24 +22,24 @@ pip install .
 ## Basic Usage (Conceptual)
 
 ```python
-from excelalchemy import *
+import gridient as gr
 import pandas as pd
 
 # Define values and parameters
-initial_investment = ExcelValue("Initial Investment", 1000000, format="$#,##0")
-discount_rate = ExcelValue("Discount Rate", 0.05, format="0.00%")
-params = ExcelParameterTable("Parameters", [initial_investment, discount_rate])
+initial_investment = gr.ExcelValue("Initial Investment", 1000000, format="$#,##0")
+discount_rate = gr.ExcelValue("Discount Rate", 0.05, format="0.00%")
+params = gr.ExcelParameterTable("Parameters", [initial_investment, discount_rate])
 
 # Perform calculations (these become Excel formulas)
-revenue = ExcelSeries.from_pandas(pd.Series([100, 150, 200]), name="Revenue")
+revenue = gr.ExcelSeries.from_pandas(pd.Series([100, 150, 200]), name="Revenue")
 profit = revenue * 0.2
 profit.name = "Profit"
 profit.format = "$#,##0"
 
 # Create layout
-workbook = ExcelWorkbook("report.xlsx")
-layout = ExcelLayout(workbook)
-sheet1 = ExcelSheetLayout("Dashboard")
+workbook = gr.ExcelWorkbook("report.xlsx")
+layout = gr.ExcelLayout(workbook)
+sheet1 = gr.ExcelSheetLayout("Dashboard")
 
 # Add components to layout
 sheet1.add(params, row=1, col=1)
