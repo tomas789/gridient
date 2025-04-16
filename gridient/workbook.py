@@ -1,3 +1,4 @@
+import re
 from typing import Dict, Optional
 
 import xlsxwriter
@@ -12,13 +13,50 @@ from .styling import ExcelStyle
 class ExcelWorkbook:
     """Wrapper for xlsxwriter.Workbook with format caching."""
 
+    # Regex pattern for invalid characters in worksheet names
+    _INVALID_CHARS_PATTERN = r"[/\\?*:\[\]]"
+    # Excel's reserved worksheet name
+    _RESERVED_NAMES = ["History"]
+
     def __init__(self, filename: str):
         self.filename = filename
         self._workbook = xlsxwriter.Workbook(filename)
         self._format_cache: Dict[tuple, object] = {}  # Cache for combined formats
 
+    def validate_worksheet_name(self, name: Optional[str]) -> None:
+        r"""
+        Validate worksheet name according to Excel rules.
+
+        Rules:
+        - Names cannot be blank
+        - Names cannot contain more than 31 characters
+        - Names cannot contain any of these characters: / \ ? * : [ ]
+        - Names cannot begin or end with an apostrophe (')
+        - Names cannot be the reserved word "History"
+
+        Raises ValueError if the name is invalid.
+        """
+        if name is None:
+            return  # Allow None to use default worksheet name
+
+        if name == "":
+            raise ValueError("Worksheet name cannot be blank")
+
+        if len(name) > 31:
+            raise ValueError(f"Worksheet name cannot contain more than 31 characters (got {len(name)})")
+
+        if re.search(self._INVALID_CHARS_PATTERN, name):
+            raise ValueError(r"Worksheet name contains invalid characters. Cannot use any of: / \ ? * : [ ]")
+
+        if name.startswith("'") or name.endswith("'"):
+            raise ValueError("Worksheet name cannot begin or end with an apostrophe (')")
+
+        if name in self._RESERVED_NAMES:
+            raise ValueError(f"'{name}' is a reserved worksheet name in Excel")
+
     def add_worksheet(self, name: Optional[str] = None):
-        """Add a new worksheet to the workbook."""
+        """Add a new worksheet to the workbook with name validation."""
+        self.validate_worksheet_name(name)
         return self._workbook.add_worksheet(name)
 
     def get_combined_format(self, style: Optional[ExcelStyle], num_format: Optional[str]):
