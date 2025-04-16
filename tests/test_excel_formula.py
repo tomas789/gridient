@@ -78,27 +78,29 @@ class TestExcelFormulaRendering:
         val1._excel_ref = "A1"
         val2._excel_ref = "B1"
 
-        ref_map = {val1.id: "A1", val2.id: "B1"}
+        # Assume these values are on 'Sheet1' for the test
+        current_sheet = "Sheet1"
+        ref_map = {val1.id: (current_sheet, "A1"), val2.id: (current_sheet, "B1")}
 
         # Addition
         formula = ExcelFormula("+", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1+$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1+$B$1"
 
         # Subtraction
         formula = ExcelFormula("-", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1-$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1-$B$1"
 
         # Multiplication
         formula = ExcelFormula("*", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1*$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1*$B$1"
 
         # Division
         formula = ExcelFormula("/", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1/$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1/$B$1"
 
         # Power
         formula = ExcelFormula("^", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1^$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1^$B$1"
 
     def test_render_comparison_operators(self):
         """Test rendering comparison operators."""
@@ -107,31 +109,33 @@ class TestExcelFormulaRendering:
         val1._excel_ref = "A1"
         val2._excel_ref = "B1"
 
-        ref_map = {val1.id: "A1", val2.id: "B1"}
+        # Assume these values are on 'Sheet1' for the test
+        current_sheet = "Sheet1"
+        ref_map = {val1.id: (current_sheet, "A1"), val2.id: (current_sheet, "B1")}
 
         # Equal
         formula = ExcelFormula("=", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1=$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1=$B$1"
 
         # Not equal
         formula = ExcelFormula("<>", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1<>$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1<>$B$1"
 
         # Greater than
         formula = ExcelFormula(">", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1>$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1>$B$1"
 
         # Less than
         formula = ExcelFormula("<", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1<$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1<$B$1"
 
         # Greater than or equal
         formula = ExcelFormula(">=", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1>=$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1>=$B$1"
 
         # Less than or equal
         formula = ExcelFormula("<=", [val1, val2])
-        assert formula.render(ref_map) == "=$A$1<=$B$1"
+        assert formula.render(current_sheet, ref_map) == "=$A$1<=$B$1"
 
     def test_render_function_calls(self):
         """Test rendering function calls."""
@@ -142,20 +146,26 @@ class TestExcelFormulaRendering:
         val2._excel_ref = "B1"
         val3._excel_ref = "C1"
 
-        ref_map = {val1.id: "A1", val2.id: "B1", val3.id: "C1"}
+        # Assume these values are on 'Sheet1' for the test
+        current_sheet = "Sheet1"
+        ref_map = {
+            val1.id: (current_sheet, "A1"),
+            val2.id: (current_sheet, "B1"),
+            val3.id: (current_sheet, "C1"),
+        }
 
         # SUM function
         formula = ExcelFormula("SUM", [val1, val2, val3])
-        assert formula.render(ref_map) == "=SUM($A$1,$B$1,$C$1)"
+        assert formula.render(current_sheet, ref_map) == "=SUM($A$1,$B$1,$C$1)"
 
         # AVERAGE function
         formula = ExcelFormula("AVERAGE", [val1, val2, val3])
-        assert formula.render(ref_map) == "=AVERAGE($A$1,$B$1,$C$1)"
+        assert formula.render(current_sheet, ref_map) == "=AVERAGE($A$1,$B$1,$C$1)"
 
         # IF function
         condition = ExcelFormula(">", [val1, val2])
         formula = ExcelFormula("IF", [ExcelValue(condition), val1, val2])
-        rendered = formula.render(ref_map)
+        rendered = formula.render(current_sheet, ref_map)
         assert "=IF(" in rendered
         assert "$A$1>$B$1" in rendered
         assert ",$A$1,$B$1)" in rendered
@@ -165,33 +175,37 @@ class TestExcelFormulaRendering:
         val = ExcelValue(5, is_parameter=True)
         val._excel_ref = "A1"
 
-        ref_map = {val.id: "A1"}
+        # Assume these values are on 'Sheet1' for the test
+        current_sheet = "Sheet1"
+        ref_map = {val.id: (current_sheet, "A1")}
 
         # Unary minus
         formula = ExcelFormula("-", [val])
-        assert formula.render(ref_map) == "=-$A$1"
+        assert formula.render(current_sheet, ref_map) == "=-$A$1"
 
     def test_render_with_different_argument_types(self):
         """Test rendering with different argument types."""
         val = ExcelValue(5, is_parameter=True)
         val._excel_ref = "A1"
 
-        ref_map = {val.id: "A1"}
+        # Assume these values are on 'Sheet1' for the test
+        current_sheet = "Sheet1"
+        ref_map = {val.id: (current_sheet, "A1")}
 
         # String argument
         formula = ExcelFormula("&", [val, "text"])
-        rendered = formula.render(ref_map)
+        rendered = formula.render(current_sheet, ref_map)
         # Since the string concatenation operator might be rendered in different ways
         assert '$A$1&"text"' in rendered or '&($A$1,"text")' in rendered
 
         # Number argument
         formula = ExcelFormula("+", [val, 10])
-        rendered = formula.render(ref_map)
+        rendered = formula.render(current_sheet, ref_map)
         assert "$A$1+10" in rendered
 
         # Boolean argument
         formula = ExcelFormula("IF", [val, True, False])
-        rendered = formula.render(ref_map)
+        rendered = formula.render(current_sheet, ref_map)
         assert "TRUE" in rendered
         assert "FALSE" in rendered
 
@@ -209,13 +223,15 @@ class TestExcelFormulaParenthesesHandling:
         val2._excel_ref = "B1"
         val3._excel_ref = "C1"
 
-        ref_map = {val1.id: "A1", val2.id: "B1", val3.id: "C1"}
+        # Assume these values are on 'Sheet1' for the test
+        current_sheet = "Sheet1"
+        ref_map = {val1.id: (current_sheet, "A1"), val2.id: (current_sheet, "B1"), val3.id: (current_sheet, "C1")}
 
         # Create a formula: (A1 + B1) * C1
         addition = ExcelFormula("+", [val1, val2])
         multiplication = ExcelFormula("*", [ExcelValue(addition), val3])
 
-        rendered = multiplication.render(ref_map)
+        rendered = multiplication.render(current_sheet, ref_map)
         # Should have parentheses around the addition since * has higher precedence
         assert "=($A$1+$B$1)*$C$1" in rendered
 
@@ -223,7 +239,7 @@ class TestExcelFormulaParenthesesHandling:
         addition2 = ExcelFormula("+", [val2, val3])
         multiplication2 = ExcelFormula("*", [val1, ExcelValue(addition2)])
 
-        rendered2 = multiplication2.render(ref_map)
+        rendered2 = multiplication2.render(current_sheet, ref_map)
         assert "=$A$1*($B$1+$C$1)" in rendered2
 
     def test_no_unnecessary_parentheses(self):
@@ -236,13 +252,15 @@ class TestExcelFormulaParenthesesHandling:
         val2._excel_ref = "B1"
         val3._excel_ref = "C1"
 
-        ref_map = {val1.id: "A1", val2.id: "B1", val3.id: "C1"}
+        # Assume these values are on 'Sheet1' for the test
+        current_sheet = "Sheet1"
+        ref_map = {val1.id: (current_sheet, "A1"), val2.id: (current_sheet, "B1"), val3.id: (current_sheet, "C1")}
 
         # A1 * B1 + C1 (no parentheses needed as * has higher precedence)
         multiplication = ExcelFormula("*", [val1, val2])
         addition = ExcelFormula("+", [ExcelValue(multiplication), val3])
 
-        rendered = addition.render(ref_map)
+        rendered = addition.render(current_sheet, ref_map)
         # Should not have unnecessary parentheses
         assert "=$A$1*$B$1+$C$1" in rendered
 
@@ -250,5 +268,5 @@ class TestExcelFormulaParenthesesHandling:
         subtraction = ExcelFormula("-", [val2, val3])
         division = ExcelFormula("/", [val1, ExcelValue(subtraction)])
 
-        rendered = division.render(ref_map)
-        assert "=$A$1/($B$1-$C$1)" in rendered
+        rendered2 = division.render(current_sheet, ref_map)
+        assert "=$A$1/($B$1-$C$1)" in rendered2

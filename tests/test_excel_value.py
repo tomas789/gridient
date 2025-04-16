@@ -250,12 +250,14 @@ class TestExcelValueRendering:
         val_str = ExcelValue("test")
         val_bool = ExcelValue(True)
 
+        # Assume Sheet1 context for rendering tests
+        current_sheet = "Sheet1"
         ref_map = {}
 
-        assert val_int._render_formula_or_value(ref_map) == 42
-        assert val_float._render_formula_or_value(ref_map) == 3.14
-        assert val_str._render_formula_or_value(ref_map) == "test"
-        assert val_bool._render_formula_or_value(ref_map)
+        assert val_int._render_formula_or_value(current_sheet, ref_map) == 42
+        assert val_float._render_formula_or_value(current_sheet, ref_map) == 3.14
+        assert val_str._render_formula_or_value(current_sheet, ref_map) == "test"
+        assert val_bool._render_formula_or_value(current_sheet, ref_map) is True
 
     def test_render_excel_value_reference(self):
         """Test rendering references to other ExcelValue objects."""
@@ -264,26 +266,34 @@ class TestExcelValueRendering:
 
         wrapper = ExcelValue(val)
 
-        # With ref_map
-        ref_map = {val.id: "B2"}
-        assert wrapper._render_formula_or_value(ref_map) == "=B2"
+        # Assume Sheet1 context
+        current_sheet = "Sheet1"
 
-        # Without ref_map (fallback to excel_ref)
-        assert wrapper._render_formula_or_value({}) == "=A1"
+        # With ref_map containing the correct tuple format
+        ref_map_tuple = {val.id: (current_sheet, "B2")}
+        # _render_formula_or_value for ExcelValue wrapping ExcelValue should return the cell ref (no '=')
+        assert wrapper._render_formula_or_value(current_sheet, ref_map_tuple) == "=B2"
+
+        # Without ref_map, it should now render #REF! as _excel_ref fallback is removed
+        assert wrapper._render_formula_or_value(current_sheet, {}) == "#REF!"
 
     def test_render_excel_formula(self):
         """Test rendering ExcelFormula objects."""
         val1 = ExcelValue(5)
         val2 = ExcelValue(3)
         formula = ExcelFormula("+", [val1, val2])
-        value = ExcelValue(formula)
+        value = ExcelValue(formula)  # ExcelValue wrapping the formula
 
         # Set cell references
         val1._excel_ref = "A1"
         val2._excel_ref = "B1"
-        ref_map = {val1.id: "A1", val2.id: "B1"}
 
-        rendered = value._render_formula_or_value(ref_map)
+        # Assume Sheet1 context
+        current_sheet = "Sheet1"
+        ref_map = {val1.id: (current_sheet, "A1"), val2.id: (current_sheet, "B1")}
+
+        # Rendering an ExcelValue containing a formula should call formula.render
+        rendered = value._render_formula_or_value(current_sheet, ref_map)
         assert rendered == "=A1+B1"
 
     def test_cell_width_estimation(self):
@@ -332,7 +342,10 @@ class TestExcelValueWriting:
         formula = val1 + val2  # Creates ExcelValue with ExcelFormula
 
         # Set up ref_map
-        ref_map = {val1.id: "A1", val2.id: "B1"}
+        # Assume Sheet1 context for ref_map and write
+        current_sheet = "Sheet1"
+        worksheet_mock.name = current_sheet  # Set sheet name on mock
+        ref_map = {val1.id: (current_sheet, "A1"), val2.id: (current_sheet, "B1")}
 
         # Call write
         formula.write(worksheet_mock, 0, 0, workbook_mock, ref_map)
@@ -342,6 +355,7 @@ class TestExcelValueWriting:
         # Check first argument (row, col, formula)
         assert worksheet_mock.write_formula.call_args[0][0] == 0
         assert worksheet_mock.write_formula.call_args[0][1] == 0
+        # The fix in _render_arg handles simple refs correctly now
         assert worksheet_mock.write_formula.call_args[0][2] == "=A1+B1"
 
     def test_track_column_width(self):
@@ -380,9 +394,12 @@ class TestExcelValueWriting:
         format_mock = MagicMock()
         workbook_mock.get_combined_format.return_value = format_mock
 
+        worksheet_mock.name = "Sheet1"  # Set sheet name for write call
+
         # Call write
         value.write(worksheet_mock, 0, 0, workbook_mock, {})
 
         # Verify style was requested and applied
         workbook_mock.get_combined_format.assert_called_once_with(style, "#,##0.00")
+        # The value should be written as the number 42, not string '42'
         worksheet_mock.write.assert_called_once_with(0, 0, 42, format_mock)

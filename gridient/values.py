@@ -31,19 +31,31 @@ class ExcelValue:
         _id: Optional[int] = None,
         is_parameter: bool = False,  # Add is_parameter flag to identify parameter values
     ):  # Internal ID for wrapping
-        if _id is None:
-            self.id = ExcelValue._next_id
-            ExcelValue._next_id += 1
-        else:
-            # Used when wrapping literals to maintain connection if needed
-            self.id = _id
-
         self.name = name  # Optional name, useful for tables/params
         # Don't wrap if the value is *already* an ExcelValue or ExcelFormula
         if isinstance(value, (ExcelValue, ExcelFormula)):
+            # --- MODIFIED: Stop automatic ID inheritance --- #
+            if _id is not None:
+                self.id = _id  # Allow explicit override
+            # elif hasattr(value, "id"):
+            #     self.id = value.id  # Use ID of wrapped object
+            #     logger.debug(f"ExcelValue wrapper inheriting ID {self.id} from inner {type(value)}")
+            else:
+                # Assign a new ID to the wrapper ExcelValue
+                self.id = ExcelValue._next_id
+                ExcelValue._next_id += 1
+                logger.debug(f"ExcelValue wrapper assigned new ID {self.id} for inner {type(value)}")
+
             self._value = value
         else:
             # Store the literal value directly, no need to wrap recursively
+            # Assign new ID for literals or unknown types
+            if _id is None:
+                self.id = ExcelValue._next_id
+                ExcelValue._next_id += 1
+            else:
+                # Used when wrapping literals to maintain connection if needed
+                self.id = _id
             self._value = value
 
         self.format = format
@@ -71,36 +83,142 @@ class ExcelValue:
         # primarily for debugging or direct inspection.
         return self._value
 
-    def _render_formula_or_value(self, ref_map: dict) -> Any:
+    def _render_formula_or_value(self, current_sheet_name: str, ref_map: Dict[int, Tuple[str, str]]) -> Any:
         """Renders the value as an Excel formula string or a literal."""
-        if isinstance(self._value, ExcelFormula):
-            return self._value.render(ref_map)
-        elif isinstance(self._value, ExcelValue):
-            inner_value = self._value
-            ref = ref_map.get(inner_value.id)
-            if ref is None:
-                ref = inner_value.excel_ref  # Fallback, might be unplaced
-                if ref.startswith("<Unplaced"):
-                    logger.warning(
-                        f"Rendering reference to unplaced inner ExcelValue {inner_value.id}. Result might be unexpected."
-                    )
-                    # Return the literal value of the unplaced inner value as a fallback
-                    return inner_value._render_formula_or_value(ref_map)  # Recursive call for the *inner* literal
+        value_to_render = self._value
 
-            # Create the formula string "=Reference"
-            formula_str = "=" + ref
-            # Only make the reference absolute if it's a parameter or has is_parameter=True
-            if hasattr(inner_value, "is_parameter") and inner_value.is_parameter:
-                try:
-                    row, col = xl_cell_to_rowcol(ref)
-                    absolute_ref = xl_rowcol_to_cell(row, col, row_abs=True, col_abs=True)
-                    formula_str = "=" + absolute_ref
-                except Exception:
-                    logger.warning(f"Could not make reference absolute for parameter ref {ref}")
-            return formula_str  # Return e.g., "=$C$4" or "=Sheet1!A5"
+        # --- NEW: Handle nested ExcelValue wrapping Formula/Value ---
+        # If the immediate _value is an ExcelValue, check *its* _value.
+        # Keep unwrapping until we hit a Formula, a primitive, or an ExcelValue
+        # that is directly referenced in ref_map (i.e., it was placed).
+        temp_val = value_to_render
+        while isinstance(temp_val, ExcelValue):
+            # Check if this *inner* value has a direct reference (was placed)
+            inner_ref_data = ref_map.get(temp_val.id)
+            # If this ExcelValue exists in the ref_map, it means it was placed and
+            # we should render a reference to it, regardless of ID matching self.
+            if inner_ref_data is not None:
+                # This inner value was placed directly.
+                # We should render a reference to this inner value.
+                value_to_render = temp_val  # Set the target for reference rendering
+                break  # Stop unwrapping
+
+            # Check if this ExcelValue has an _excel_ref but is missing from ref_map
+            if temp_val._excel_ref is not None and not temp_val._excel_ref.startswith("<Unplaced"):
+                logger.debug(
+                    f"ExcelValue {temp_val.id} has _excel_ref='{temp_val._excel_ref}' but no entry in ref_map. Returning #REF!"
+                )
+                return "#REF!"  # Return #REF! instead of continuing to unwrap
+
+            # Otherwise, unwrap further if possible
+            if isinstance(temp_val.value, (ExcelFormula, ExcelValue)):
+                temp_val = temp_val.value
+            else:
+                # Inner value is a literal, use it
+                value_to_render = temp_val.value  # Render the literal
+                break
+        else:  # If the loop finished without break, means the final temp_val is the one to render
+            value_to_render = temp_val
+
+        # --- Now render based on the potentially unwrapped value_to_render ---
+        if isinstance(value_to_render, ExcelFormula):
+            # Pass current sheet context down to formula rendering
+            # logger.debug(f"Rendering inner formula: {value_to_render!r}")
+            return value_to_render.render(current_sheet_name, ref_map)
+
+        elif isinstance(value_to_render, ExcelValue):
+            # This ExcelValue was directly placed (or is the original self if no unwrapping happened)
+            # Render a reference to it.
+            inner_value = value_to_render  # Use the potentially unwrapped value
+            # logger.debug(f"Rendering reference to ExcelValue: {inner_value.id}")
+            ref_data = ref_map.get(inner_value.id)
+
+            sheet_name: Optional[str] = None
+            cell_ref: Optional[str] = None
+
+            # --- Try to resolve reference ---
+            # 1. Check ref_map (preferred)
+            if isinstance(ref_data, tuple) and len(ref_data) == 2:
+                sheet_name, cell_ref = ref_data
+                # logger.debug(f"Resolved {inner_value.id} via ref_map: ({sheet_name}, {cell_ref})") # DEBUG
+            # elif isinstance(ref_data, str): # Deprecated - ref_map should always contain tuples
+            #     logger.warning(
+            #         f"Found string ref '{ref_data}' in ref_map for {inner_value.id}. Assuming current sheet '{current_sheet_name}'."
+            #     )
+            #     sheet_name = current_sheet_name
+            #     cell_ref = ref_data
+            # else: # ref_data is None or invalid format
+            #     logger.warning(
+            #         f"Ref_map lookup failed or invalid format for {inner_value.id}. ref_data: {ref_data!r}. Checking _excel_ref fallback."
+            #     )
+
+            # --- Fallback: Use _excel_ref only if ref_map fails and ref is valid ---
+            # This fallback is potentially problematic for cross-sheet refs as sheet context is lost.
+            # It should only be used if the layout process somehow failed to populate ref_map correctly.
+            if cell_ref is None:
+                _ref = inner_value.excel_ref
+                if _ref is not None and not _ref.startswith("<Unplaced"):
+                    # Attempt to reconstruct sheet name if possible (this is brittle)
+                    # Ideally, ref_map should be populated correctly during layout.
+                    # If we reach here, it suggests a potential layout issue.
+                    # For now, we *cannot* reliably determine the sheet name from _excel_ref alone.
+                    # We must rely on ref_map for cross-sheet references.
+                    logger.warning(
+                        f"Value {inner_value.id} not found or invalid in ref_map. _excel_ref '{_ref}' exists but sheet context is ambiguous. Rendering as #REF!"
+                    )
+                    # sheet_name = current_sheet_name # REMOVED: Incorrect assumption
+                    # cell_ref = _ref
+                # else:
+                #     logger.debug(f"No valid reference found in ref_map or _excel_ref for {inner_value.id}")
+
+            # --- If reference was resolved (MUST have sheet_name and cell_ref) ---
+            if sheet_name is not None and cell_ref is not None:
+                # Add sheet prefix if necessary
+                if sheet_name != current_sheet_name:
+                    quoted_sheet_name = f"'{sheet_name}'" if " " in sheet_name else sheet_name
+                    full_ref = f"{quoted_sheet_name}!{cell_ref}"
+                else:
+                    full_ref = cell_ref
+
+                # Create the formula string "=Reference" or "=Sheet1!Reference"
+                formula_str = "=" + full_ref
+
+                # Make the cell reference absolute if it's a parameter
+                if hasattr(inner_value, "is_parameter") and inner_value.is_parameter:
+                    try:
+                        row, col = xl_cell_to_rowcol(cell_ref)  # Use non-prefixed ref for conversion
+                        absolute_ref = xl_rowcol_to_cell(row, col, row_abs=True, col_abs=True)
+                        # Re-add sheet prefix if needed after making absolute
+                        if sheet_name != current_sheet_name:
+                            quoted_sheet_name = f"'{sheet_name}'" if " " in sheet_name else sheet_name
+                            absolute_ref = f"{quoted_sheet_name}!{absolute_ref}"
+                        formula_str = "=" + absolute_ref
+                    except Exception:
+                        logger.warning(f"Could not make reference absolute for {cell_ref} (part of {full_ref})")
+                        formula_str = "=" + full_ref  # Fallback to potentially non-absolute ref
+
+                return formula_str  # Return the formula string e.g., "=Sheet1!$C$4"
+            else:
+                # --- Fallback: Reference could not be resolved ---
+                logger.warning(
+                    f"Could not resolve reference for ExcelValue {inner_value.id} (ref_data: {ref_data!r}, _excel_ref: {inner_value._excel_ref!r}), rendering as #REF!"
+                )
+                return "#REF!"
+
         else:
-            # Value is a literal, return it directly
-            return self._value
+            # --- Render Literal or Other Types ---
+            # Ensure we don't accidentally return an ExcelValue object
+            # The check below is incorrect because self._value might be the original wrapper,
+            # while value_to_render is the unwrapped literal.
+            # if isinstance(self._value, ExcelValue):
+            #     logger.error(
+            #         f"ExcelValue._render_formula_or_value encountered raw inner ExcelValue {self._value.id}. This indicates an issue in wrapping or resolution. Rendering as #ERROR!"
+            #     )
+            #     return "#ERROR!"
+
+            # Return the potentially unwrapped literal value.
+            # logger.debug(f"Rendering literal: {value_to_render!r}")
+            return value_to_render
 
     def _estimate_cell_width(self, rendered_value: Any) -> float:
         """Estimate display width of a rendered cell value (simple version)."""
@@ -122,7 +240,7 @@ class ExcelValue:
         row: int,
         col: int,
         workbook_wrapper,
-        ref_map: dict,
+        ref_map: Dict[int, Tuple[str, str]],
         column_widths: Optional[Dict[int, float]] = None,  # Add column_widths tracker
     ):
         """Writes the value to Excel at the specified position and updates column width."""
@@ -133,9 +251,14 @@ class ExcelValue:
             from xlsxwriter.utility import xl_rowcol_to_cell
 
             self._excel_ref = xl_rowcol_to_cell(row, col)
-            ref_map[self.id] = self._excel_ref  # Ensure it's in the map
+            # This write-time assignment won't have sheet context, rely on layout pass
+            # If this happens, cross-sheet refs *to* this cell might fail.
+            # ref_map[self.id] = self._excel_ref  # Ensure it's in the map
+            logger.warning(f"ExcelValue {self.id} assigned ref {self._excel_ref} during write pass, not layout.")
 
-        value_to_write = self._render_formula_or_value(ref_map)
+        # Get current sheet name and pass it for rendering
+        current_sheet_name = worksheet.name
+        value_to_write = self._render_formula_or_value(current_sheet_name, ref_map)
 
         # Get combined format (style + number format)
         cell_format = workbook_wrapper.get_combined_format(self.style, self.format)
@@ -271,40 +394,78 @@ class ExcelFormula:
         # High precedence for functions/unknown to avoid unnecessary parentheses
         return self.operator_precedence.get(self.operator_or_function, 100)
 
-    def _render_arg(self, arg: Any, ref_map: dict, parent_precedence: int) -> str:
+    def _render_arg(
+        self, arg: Any, current_sheet_name: str, ref_map: Dict[int, Tuple[str, str]], parent_precedence: int
+    ) -> str:
         """Render a single argument to its Excel representation, adding parentheses if needed."""
         if isinstance(arg, ExcelValue):
-            ref = ref_map.get(arg.id)
-            if ref is None:
-                ref = arg.excel_ref  # Check the assigned ref if not in map yet
+            # --- FIX: Handle ExcelValue containing an ExcelFormula ---
+            # If the ExcelValue directly wraps a formula, render the formula
+            # instead of looking up the wrapper ExcelValue's ID in ref_map.
+            if isinstance(arg.value, ExcelFormula):
+                inner_formula = arg.value
+                arg_precedence = inner_formula.get_precedence()
+                # Render recursively, remove leading '='
+                rendered_nested = inner_formula.render(current_sheet_name, ref_map).lstrip("=")
+                # Add parentheses if the nested formula has lower precedence than the parent
+                if arg_precedence < parent_precedence:
+                    # Avoid double-parenthesizing unary minus
+                    if not (inner_formula.operator_or_function == "-" and len(inner_formula.arguments) == 1):
+                        return f"({rendered_nested})"
+                return rendered_nested
+            # --- END FIX ---
 
-            # --- Check if the ExcelValue has a valid reference ---
-            if ref is not None and not ref.startswith("<Unplaced"):
-                # Value has a valid reference, USE IT!
-                rendered_ref = ref
+            # --- Original logic for ExcelValue containing a reference ---
+            ref_data = ref_map.get(arg.id)
+            sheet_name: Optional[str] = None
+            cell_ref: Optional[str] = None
+
+            # --- Try ref_map first (primary source) ---
+            if isinstance(ref_data, tuple) and len(ref_data) == 2:
+                sheet_name, cell_ref = ref_data  # Correct path: sheet_name="Sheet1", cell_ref="B2"
+            # else: # ref_data is None or invalid format
+            #     logger.debug(f"_render_arg: ref_map lookup failed/invalid for {arg.id}: {ref_data!r}")
+
+            # --- If reference was resolved via ref_map ---
+            if sheet_name is not None and cell_ref is not None:
+                # Add sheet prefix if necessary
+                if sheet_name != current_sheet_name:
+                    quoted_sheet_name = f"'{sheet_name}'" if " " in sheet_name else sheet_name
+                    full_ref = f"{quoted_sheet_name}!{cell_ref}"
+                else:
+                    full_ref = cell_ref
+
                 # Only make reference absolute if it's a parameter
+                rendered_ref = full_ref  # Start with potentially sheet-prefixed ref
                 if hasattr(arg, "is_parameter") and arg.is_parameter:
                     try:
-                        row, col = xl_cell_to_rowcol(ref)
+                        # Use cell_ref (without sheet) for absolute conversion
+                        row, col = xl_cell_to_rowcol(cell_ref)
                         rendered_ref = xl_rowcol_to_cell(row, col, row_abs=True, col_abs=True)
+                        # Re-add sheet prefix if needed after making absolute
+                        if sheet_name != current_sheet_name:
+                            quoted_sheet_name = f"'{sheet_name}'" if " " in sheet_name else sheet_name
+                            rendered_ref = f"{quoted_sheet_name}!{rendered_ref}"
                     except Exception:
                         # If ref is not a valid cell ref (e.g., range), return as is
-                        logger.warning(f"Could not make reference absolute for {ref}")
-                return rendered_ref  # Return the cell reference (e.g., 'E9')
+                        # logger.warning(f"Could not make reference absolute for {cell_ref} (part of {full_ref})")
+                        # Fallback to using the full_ref as calculated before
+                        rendered_ref = full_ref
+                return rendered_ref  # Return the cell reference (e.g., 'E9' or 'Sheet1!$C$4')
             else:
-                # --- Fallback for UNPLACED values ---
-                # Value is UNPLACED (<Unplaced...>) or ref is None.
-                # Render its internal value instead.
-                logger.debug(f"Unplaced/missing ref for ExcelValue {arg.id}. Rendering internal value.")
-                # Check the internal value for fallback rendering
-                internal_value = arg.value  # Access the wrapped value/formula
-                return self._render_arg(internal_value, ref_map, parent_precedence)
+                # --- Reference could not be resolved ---
+                # REVISED FIX for RecursionError / Ref Error -> Now handled by removing fallback
+                logger.warning(
+                    f"_render_arg: Could not resolve reference for ExcelValue {arg.id} (ref_data: {ref_data!r}), rendering as #REF!"
+                )
+                return "#REF!"
 
         elif isinstance(arg, ExcelFormula):
             # --- Render a formula passed directly as an argument ---
             arg_precedence = arg.get_precedence()
             # Render recursively, remove leading '='
-            rendered_nested = arg.render(ref_map).lstrip("=")
+            # Pass context down
+            rendered_nested = arg.render(current_sheet_name, ref_map).lstrip("=")
             # Add parentheses if the nested formula has lower precedence than the parent
             if arg_precedence < parent_precedence:
                 # Avoid double-parenthesizing unary minus
@@ -327,11 +488,11 @@ class ExcelFormula:
             # Default fallback to string representation
             return str(arg)
 
-    def render(self, ref_map: dict) -> str:
+    def render(self, current_sheet_name: str, ref_map: Dict[int, Tuple[str, str]]) -> str:
         """Renders the formula to its Excel string representation with proper parentheses."""
         current_precedence = self.get_precedence()
         # Pass current precedence down to _render_arg
-        rendered_args = [self._render_arg(arg, ref_map, current_precedence) for arg in self.arguments]
+        rendered_args = [self._render_arg(arg, current_sheet_name, ref_map, current_precedence) for arg in self.arguments]
 
         # Basic infix operators
         if self.operator_or_function in [

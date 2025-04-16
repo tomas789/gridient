@@ -49,3 +49,13 @@ sheet1.add(profit, row=5, col=1)
 layout.add_sheet(sheet1)
 layout.write() 
 ``` 
+
+## TODO
+
+- Check rules of sheet names.
+- Parameters should have an option to provide a name. Such parameter shuld than be referenced by name in formulas. There should be a unique-ness check.
+- Check rules for parameter names.
+- Add themes: The user would pick a theme and it would style tables and values accordingly.
+- Support for directly touching the xlsxwriter API.
+- Support for hooks. Such that user can override internal data structures at any step of the process.
+- Bug: There is an extra parenthesis in for example `=IF((B1>0),1,0)` which should not be there.

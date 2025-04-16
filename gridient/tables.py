@@ -81,6 +81,7 @@ class ExcelTable:
         self,
         start_row: int,
         start_col: int,
+        sheet_name: str,
         layout_manager: "ExcelLayout",
         ref_map: dict,
     ):
@@ -106,7 +107,7 @@ class ExcelTable:
             for r_idx, key in enumerate(series.index):
                 value_obj = series[key]
                 current_data_row = data_start_row + r_idx
-                layout_manager._assign_references_recursive(value_obj, current_data_row, current_data_col, ref_map)
+                layout_manager._assign_references_recursive(value_obj, current_data_row, current_data_col, sheet_name, ref_map)
 
     def write(
         self,
@@ -201,6 +202,7 @@ class ExcelParameterTable:
         self,
         start_row: int,
         start_col: int,
+        sheet_name: str,
         layout_manager: "ExcelLayout",
         ref_map: dict,
     ):
@@ -217,7 +219,7 @@ class ExcelParameterTable:
         current_row += 1
         value_col = start_col + 1
         for param_value in self.parameters:
-            layout_manager._assign_references_recursive(param_value, current_row, value_col, ref_map)
+            layout_manager._assign_references_recursive(param_value, current_row, value_col, sheet_name, ref_map)
             current_row += 1
 
     def write(

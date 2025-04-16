@@ -2,3 +2,6 @@ pytest
 ruff
 sphinx
 sphinx-rtd-theme
+coverage
+openpyxl
+types-openpyxl

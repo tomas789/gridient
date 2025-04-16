@@ -316,14 +316,11 @@ class TestExcelLayout:
             ref_map = {}
 
             # Assign references
-            layout._assign_references_recursive(value, 2, 3, ref_map)
+            layout._assign_references_recursive(value, 2, 3, "Sheet1", ref_map)
 
-            # Verify excel_ref was set
-            assert value._excel_ref == "D3"  # Col 3 (D) and Row 2 (3 in Excel)
-
-            # Verify ref_map was updated
-            assert value.id in ref_map
-            assert ref_map[value.id] == "D3"
+            # Verify reference was assigned and added to map
+            assert value._excel_ref == "D3"  # (2, 3) -> D3
+            assert ref_map[value.id] == ("Sheet1", "D3")
 
 
 class TestIntegration:

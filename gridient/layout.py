@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import xlsxwriter  # Import the main library
 from xlsxwriter.utility import xl_rowcol_to_cell
@@ -67,10 +67,13 @@ class ExcelLayout:
         self._sheets[sheet.name] = sheet
 
     # --- IMPLEMENTED Recursive Reference Assignment Helper ---
-    def _assign_references_recursive(self, component: Any, start_row: int, start_col: int, ref_map: Dict[int, str]):
+    def _assign_references_recursive(
+        self, component: Any, start_row: int, start_col: int, sheet_name: str, ref_map: Dict[int, Tuple[str, str]]
+    ):
         """Recursively assign Excel references, handling nested stacks and components."""
         # logger.debug(f"Assigning refs for {type(component)} at ({start_row}, {start_col})") # Optional debug
         if isinstance(component, ExcelValue):
+            # 1. Assign reference to this ExcelValue if not already mapped
             if component.id not in ref_map:
                 # --- Handle potential None from xl_rowcol_to_cell ---
                 cell_ref = xl_rowcol_to_cell(start_row, start_col)
@@ -81,8 +84,22 @@ class ExcelLayout:
                     )
                     return  # Skip assignment if ref is None
                 component._excel_ref = cell_ref
-                ref_map[component.id] = component._excel_ref
+                ref_map[component.id] = (sheet_name, component._excel_ref)  # Store sheet name too
                 # --- End Handle None ---
+
+            # 2. If this ExcelValue contains a formula, process its arguments recursively
+            #    This ensures any nested ExcelValues within the arguments get processed.
+            if isinstance(component._value, ExcelFormula):
+                formula = component._value
+                # logger.debug(f"Processing arguments of formula within ExcelValue {component.id}")
+                for arg in formula.arguments:
+                    # --- FIX: Only process arg if not already mapped --- #
+                    if not (isinstance(arg, ExcelValue) and arg.id in ref_map):
+                        # Pass the *outer* component's location for context, but the recursive call
+                        # should only assign a ref if the arg itself is an unmapped ExcelValue.
+                        self._assign_references_recursive(arg, start_row, start_col, sheet_name, ref_map)
+                    # else:
+                    # logger.debug(f"Skipping already mapped argument {arg.id}")
 
         elif isinstance(component, ExcelSeries):
             # This basic version assumes vertical ('down') series placement by default.
@@ -93,7 +110,7 @@ class ExcelLayout:
                 for i, key in enumerate(component.index):
                     value_obj = component[key]  # Gets the ExcelValue wrapper
                     # Recursively assign refs for the value object within the series cell
-                    self._assign_references_recursive(value_obj, current_row, current_col, ref_map)
+                    self._assign_references_recursive(value_obj, current_row, current_col, sheet_name, ref_map)
                     current_row += 1  # Assume vertical layout for now
             else:
                 logger.warning(f"ExcelSeries '{component.name}' has no index, cannot assign references.")
@@ -102,7 +119,7 @@ class ExcelLayout:
             # Delegate to the table's own reference assignment method
             if hasattr(component, "_assign_child_references") and callable(component._assign_child_references):
                 # logger.debug(f"  Delegating ref assignment to ExcelTable '{component.title}'") # Optional debug
-                component._assign_child_references(start_row, start_col, self, ref_map)
+                component._assign_child_references(start_row, start_col, sheet_name, self, ref_map)
             else:
                 logger.error(f"ExcelTable '{component.title}' is missing _assign_child_references method.")
 
@@ -110,26 +127,34 @@ class ExcelLayout:
             # Delegate to the param table's own reference assignment method
             if hasattr(component, "_assign_child_references") and callable(component._assign_child_references):
                 # logger.debug(f"  Delegating ref assignment to ExcelParameterTable '{component.title}'") # Optional debug
-                component._assign_child_references(start_row, start_col, self, ref_map)
+                component._assign_child_references(start_row, start_col, sheet_name, self, ref_map)
             else:
                 logger.error(f"ExcelParameterTable '{component.title}' is missing _assign_child_references method.")
 
         elif isinstance(component, ExcelStack):
             # Delegate reference assignment to the stack's method
             # logger.debug(f"  Delegating ref assignment to ExcelStack '{component.name}'") # Optional debug
-            component._assign_child_references(start_row, start_col, self, ref_map)
+            component._assign_child_references(start_row, start_col, sheet_name, self, ref_map)
 
         # Check for unhandled types that might contain ExcelValue objects needing references
         elif isinstance(component, (list, tuple)):  # Example: Handle lists passed directly?
             logger.warning(f"Directly assigning references for items in a {type(component)}. Behavior might be unexpected.")
             for item in component:
                 # This assumes items in list don't have their own layout offset - needs refinement
-                self._assign_references_recursive(item, start_row, start_col, ref_map)
+                self._assign_references_recursive(item, start_row, start_col, sheet_name, ref_map)
         elif isinstance(component, ExcelFormula):
             # Formulas themselves don't get cell refs, their container (ExcelValue) does.
             # We might need to recursively check formula *arguments* if they could be unassigned values.
             # logger.debug(f"  Skipping direct ref assignment for ExcelFormula: {component}") # Optional debug
-            pass  # Arguments are handled when their ExcelValue containers are processed.
+            # Arguments are processed if the formula is wrapped in an ExcelValue (see above),
+            # or if the formula is encountered standalone (e.g., directly in a list).
+            # logger.debug(f"Processing arguments of standalone formula {component}")
+            for arg in component.arguments:
+                # --- FIX: Only process arg if not already mapped --- #
+                if not (isinstance(arg, ExcelValue) and arg.id in ref_map):
+                    self._assign_references_recursive(arg, start_row, start_col, sheet_name, ref_map)
+                # else:
+                # logger.debug(f"Skipping already mapped argument {arg.id}")
         elif isinstance(component, (int, float, str, bool)) or component is None:
             # Literals don't need references assigned
             # logger.debug(f"  Skipping ref assignment for literal: {type(component)}") # Optional debug
@@ -140,18 +165,18 @@ class ExcelLayout:
             )
 
     # --- Modified Original Assign References --- (Calls the recursive helper)
-    def _assign_references(self, placed_component: PlacedComponent, ref_map: Dict[int, str]):
+    def _assign_references(self, placed_component: PlacedComponent, sheet_name: str, ref_map: Dict[int, Tuple[str, str]]):
         """Assign references using the recursive helper."""
         comp = placed_component.component
         start_row, start_col = placed_component.row, placed_component.col
         # Note: Direction from PlacedComponent is currently ignored by _assign_references_recursive
         # This needs refinement, especially for ExcelSeries.
-        self._assign_references_recursive(comp, start_row, start_col, ref_map)
+        self._assign_references_recursive(comp, start_row, start_col, sheet_name, ref_map)
 
     # --- Modified Write Method --- (No major changes needed here for stack logic itself)
     def write(self) -> None:
         """Assign references, write all components to Excel, and close workbook."""
-        ref_map: Dict[int, str] = {}  # Map ExcelValue.id -> cell reference (e.g., 'A1')
+        ref_map: Dict[int, Tuple[str, str]] = {}  # Map ExcelValue.id -> (sheet_name, cell_ref)
         # Store worksheets and column widths per sheet
         worksheets: Dict[str, xlsxwriter.worksheet.Worksheet] = {}
         sheet_column_widths: Dict[str, Dict[int, float]] = {}
@@ -159,10 +184,10 @@ class ExcelLayout:
         try:
             # --- Layout Pass: Assign references ---
             print("Starting layout pass...")
-            for sheet_layout in self._sheets.values():
+            for sheet_name, sheet_layout in self._sheets.items():
                 for placed_component in sheet_layout.get_components():
                     # Call the modified _assign_references which uses the recursive helper
-                    self._assign_references(placed_component, ref_map)
+                    self._assign_references(placed_component, sheet_name, ref_map)
             print(f"Layout pass complete. Reference map size: {len(ref_map)}")
 
             # --- Write Pass: Write data and formulas ---
