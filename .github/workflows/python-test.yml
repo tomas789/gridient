@@ -36,6 +36,18 @@ jobs:
         ruff check .
         ruff format --check .
 
-    - name: Test with pytest
+    - name: Test with pytest and coverage
       run: |
-        pytest tests/ 
+        coverage run -m pytest tests/
+        coverage report
+        coverage xml
+        coverage html
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-reports
+        path: |
+          coverage.xml
+          htmlcov/
+      if: always() 
