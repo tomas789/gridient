@@ -58,3 +58,5 @@ layout.write()
 - Bug: There is an extra parenthesis in for example `=IF((B1>0),1,0)` which should not be there.
 - Support for slices. User should be able to do something like `sum(revenue[0:5])` and get a formula back.
 - Support for make shift pivot tables. User should be able to do something like `table.groupby('category').sum()` and get table back.
+- Add performance testing: We need to know the performance of the library and know that it does not degrade when we add more features. 
+- Somehow deal with timezones in Excel - Probably just settings a target timezone and when user passes tz-aware datetime to ExcelValue it is converted to the target timezone and then stripped of the timezone information.
