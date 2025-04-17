@@ -56,3 +56,5 @@ layout.write()
 - Support for color of the sheet.
 - Support for hooks. Such that user can override internal data structures at any step of the process.
 - Bug: There is an extra parenthesis in for example `=IF((B1>0),1,0)` which should not be there.
+- Support for slices. User should be able to do something like `sum(revenue[0:5])` and get a formula back.
+- Support for make shift pivot tables. User should be able to do something like `table.groupby('category').sum()` and get table back.
