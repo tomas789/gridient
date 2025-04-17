@@ -1,16 +1,12 @@
-# Gridient
-
-A Python library designed to simplify writing complex calculations and data structures to Excel files while preserving the underlying formulas. Define your logic in Python using familiar operators and let Gridient translate it into live Excel formulas.
+Generate dynamic Excel reports directly from your Python code using Gridient. This library acts as a bridge, allowing you to define complex calculations, data structures like tables and series, and layout elements within Python, which are then translated into a fully functional Excel workbook complete with live formulas, not just static values. It simplifies the process of creating sophisticated, reproducible, and easily updatable spreadsheets by leveraging Python's capabilities for data manipulation and logic while producing familiar Excel outputs.
 
 ## Features
 
-- Define calculations using Python operators (+, -, *, /).
-- Write Pandas DataFrames and Series.
-- Create parameter tables.
-- Apply cell styling (bold, italics, colors, etc.).
-- Use custom number formatting.
-- Organize output across multiple sheets using a layout system.
-- Best-effort column auto-width adjustment.
+*   **Live Excel Formulas:** Embed Excel formulas generated from Python logic directly into cells.
+*   **Structured Layouts:** Define sheet layouts, including tables, parameter sections, and stacked data blocks.
+*   **Data Representation:** Work with concepts like `ExcelValue`, `ExcelSeries`, and `ExcelTable` in Python that map cleanly to spreadsheet elements.
+*   **Styling:** Apply basic formatting (bold, colors, number formats) to cells and ranges.
+*   **Workbook Management:** Provides a wrapper around `xlsxwriter` for creating and managing `.xlsx` files.
 
 ## Installation
 
